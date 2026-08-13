@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1030910480459",
+    "project_id": "petcard-7a01a",
+    "storage_bucket": "petcard-7a01a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1030910480459:android:f3001fb03c8767af267dce",
+        "android_client_info": {
+          "package_name": "com.example.petcard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB09OJkmebYO9RA7AibO7BWvygc8DggPmw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
