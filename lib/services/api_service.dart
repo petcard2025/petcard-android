@@ -5,22 +5,22 @@ import 'package:http/io_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  // Android Emulator → computador
-  static const String baseUrl = 'https://10.0.2.2:3000/api';
+  // Dispositivo físico por USB → computador (usa "adb reverse tcp:3001 tcp:3001")
+  static const String baseUrl = 'https://127.0.0.1:3001/api';
 
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
 
   // ============================================================
   // CLIENTE HTTP QUE ACEPTA EL CERTIFICADO AUTOFIRMADO DE DESARROLLO
-  // ⚠️ SOLO para 10.0.2.2 (tu backend local). Nunca uses esto
-  // para dominios externos/producción — ahí sí debe validarse
+  // ⚠️ SOLO para 127.0.0.1 (tu backend local vía adb reverse). Nunca uses
+  // esto para dominios externos/producción — ahí sí debe validarse
   // el certificado normalmente.
   // ============================================================
   static http.Client _clienteHttp() {
     final httpClient = HttpClient()
       ..badCertificateCallback = (cert, host, port) {
-        return host == '10.0.2.2'; // solo confía en tu backend local
+        return host == '127.0.0.1'; // solo confía en tu backend local
       };
     return IOClient(httpClient);
   }
@@ -63,7 +63,7 @@ class ApiService {
     required String contrasena,
   }) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/login'),
+      Uri.parse('$baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'Correo': correo,
@@ -152,7 +152,7 @@ class ApiService {
 
   Future<void> solicitarRecuperacion(String correo) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/forgot-password'),
+      Uri.parse('$baseUrl/auth/forgot-password'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'Correo': correo}),
     );

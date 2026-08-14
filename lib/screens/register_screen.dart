@@ -47,7 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Registro exitoso')),
         );
-        Navigator.pop(context); // vuelve al login
+        Navigator.pushReplacementNamed(context, '/login'); // vuelve al login
       }
     } on AuthException catch (e) {
       if (mounted) {

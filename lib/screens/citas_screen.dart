@@ -1,11 +1,9 @@
-// ============================================================
-// CITAS SCREEN - Gestión de citas (Mis Citas)
-// Sigue el mismo patrón que mis_mascotas_screen.dart
-// ============================================================
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class CitasScreen extends StatefulWidget {
   const CitasScreen({super.key});
