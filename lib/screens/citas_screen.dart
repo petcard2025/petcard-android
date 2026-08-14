@@ -18,7 +18,7 @@ class _CitasScreenState extends State<CitasScreen> {
   // ============================================================
   // COLOR PRINCIPAL (igual que el resto de la app)
   // ============================================================
-  static const Color kMorado = Color(0xFF7C3AED);
+  static const Color kAzul = Color(0xFF2563EB);
 
   // ============================================================
   // VARIABLES DE ESTADO
@@ -385,7 +385,7 @@ class _CitasScreenState extends State<CitasScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: kMorado),
+            colorScheme: const ColorScheme.light(primary: kAzul),
           ),
           child: child!,
         );
@@ -404,7 +404,7 @@ class _CitasScreenState extends State<CitasScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: kMorado),
+            colorScheme: const ColorScheme.light(primary: kAzul),
           ),
           child: child!,
         );
@@ -478,7 +478,7 @@ class _CitasScreenState extends State<CitasScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: kMorado,
+        backgroundColor: kAzul,
         elevation: 0,
         title: Row(
           children: [
@@ -534,13 +534,13 @@ class _CitasScreenState extends State<CitasScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: kMorado.withValues(alpha: 0.1),
+                    color: kAzul.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     '${_citas.length} citas',
                     style: const TextStyle(
-                      color: kMorado,
+                      color: kAzul,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -593,7 +593,7 @@ class _CitasScreenState extends State<CitasScreen> {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: kMorado,
+                    backgroundColor: kAzul,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -636,7 +636,7 @@ class _CitasScreenState extends State<CitasScreen> {
                   Icon(
                     _editando ? Icons.edit : Icons.calendar_today,
                     size: 18,
-                    color: kMorado,
+                    color: kAzul,
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -763,7 +763,7 @@ class _CitasScreenState extends State<CitasScreen> {
             child: ElevatedButton(
               onPressed: _editando ? _actualizarCita : _guardarCita,
               style: ElevatedButton.styleFrom(
-                backgroundColor: kMorado,
+                backgroundColor: kAzul,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -816,7 +816,7 @@ class _CitasScreenState extends State<CitasScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: kMorado, width: 2),
+              borderSide: const BorderSide(color: kAzul, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -866,7 +866,7 @@ class _CitasScreenState extends State<CitasScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: kMorado, width: 2),
+              borderSide: const BorderSide(color: kAzul, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -915,7 +915,7 @@ class _CitasScreenState extends State<CitasScreen> {
             ),
             child: Row(
               children: [
-                Icon(icono, size: 16, color: kMorado),
+                Icon(icono, size: 16, color: kAzul),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -964,12 +964,12 @@ class _CitasScreenState extends State<CitasScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: kMorado.withValues(alpha: 0.1),
+                  color: kAzul.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.calendar_today,
-                  color: kMorado,
+                  color: kAzul,
                   size: 22,
                 ),
               ),

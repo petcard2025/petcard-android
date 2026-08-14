@@ -247,7 +247,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF7C3AED),
+        backgroundColor: const Color(0xFF2563EB),
         elevation: 0,
         title: Row(
           children: [
@@ -321,7 +321,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
+          colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -531,7 +531,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
               child: ElevatedButton(
                 onPressed: _guardarCambios,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED),
+                  backgroundColor: const Color(0xFF2563EB),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -589,7 +589,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 2),
+              borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -675,7 +675,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: const Color(0xFF7C3AED)),
+            Icon(icon, size: 18, color: const Color(0xFF2563EB)),
             const SizedBox(width: 10),
             Text(
               label,
@@ -734,7 +734,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
           _buildEstadisticaRow(
             'Recordatorios activos',
             '5',
-            valueColor: const Color(0xFF7C3AED),
+            valueColor: const Color(0xFF2563EB),
           ),
         ],
       ),

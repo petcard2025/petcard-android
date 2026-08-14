@@ -293,14 +293,14 @@ class _InicioScreenState extends State<InicioScreen> {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
+            colors: [kBlue, kBlueDark],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF7C3AED).withOpacity(0.3),
+              color: kBlue.withOpacity(0.3),
               blurRadius: 14,
               offset: const Offset(0, 6),
             ),
@@ -436,7 +436,7 @@ class _InicioScreenState extends State<InicioScreen> {
       _Accion(
         icon: Icons.calendar_today,
         label: 'Programar Cita',
-        color: const Color(0xFF7C3AED),
+        color: kBlue,
         onTap: _irACitas,
       ),
       _Accion(
