@@ -508,24 +508,24 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    _editando ? Icons.edit : Icons.restaurant,
-                    size: 18,
-                    color: kAzul,
+              Icon(
+                _editando ? Icons.edit : Icons.restaurant,
+                size: 18,
+                color: kAzul,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _editando ? 'Editar Plan' : 'Nuevo Plan de Alimentación',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _editando ? 'Editar Plan' : 'Nuevo Plan de Alimentación',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.close, size: 20),

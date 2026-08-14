@@ -90,10 +90,16 @@ class _InicioScreenState extends State<InicioScreen> {
     // ID generado a partir de las mascotas registradas
     final primer =
     _mascotas.isNotEmpty ? (_mascotas.first as Map)['id'].toString() : '';
-    final digitos = primer.isEmpty ? '000001' : primer.padLeft(6, '0').substring(
-      primer.length > 6 ? primer.length - 6 : 0,
-      6,
-    );
+    String digitos;
+    if (primer.isEmpty) {
+      digitos = '000001';
+    } else {
+      final relleno = primer.padLeft(6, '0');
+      // Tomamos siempre los últimos 6 caracteres del string ya rellenado
+      digitos = relleno.length > 6
+          ? relleno.substring(relleno.length - 6)
+          : relleno;
+    }
     return 'PET-$digitos';
   }
 

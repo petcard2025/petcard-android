@@ -132,8 +132,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
       List<dynamic> usuarios = jsonDecode(usuariosStr);
 
       final index = usuarios.indexWhere(
-        (u) =>
-            u['documento'] == prefs.getString('petcard_documento') &&
+            (u) =>
+        u['documento'] == prefs.getString('petcard_documento') &&
             u['tipoDocumento'] == prefs.getString('petcard_tipo_documento'),
       );
 
@@ -222,7 +222,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 '/login',
-                (route) => false,
+                    (route) => false,
               );
             },
             child: const Text(
@@ -345,6 +345,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       '$_nombre $_apellido',
@@ -353,6 +354,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
@@ -361,30 +363,37 @@ class _PerfilScreenState extends State<PerfilScreen> {
                         color: Colors.white.withOpacity(0.85),
                         fontSize: 13,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              Row(
-                children: [
-                  _buildBannerBoton(
-                    icon: Icons.edit,
-                    label: _enEdicion ? 'Guardar' : 'Editar',
-                    onPressed: () {
-                      if (_enEdicion) {
-                        _guardarCambios();
-                      } else {
-                        setState(() => _enEdicion = true);
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _buildBannerBoton(
-                    icon: Icons.logout,
-                    label: 'Cerrar Sesión',
-                    onPressed: _cerrarSesion,
-                  ),
-                ],
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildBannerBoton(
+                  icon: Icons.edit,
+                  label: _enEdicion ? 'Guardar' : 'Editar',
+                  onPressed: () {
+                    if (_enEdicion) {
+                      _guardarCambios();
+                    } else {
+                      setState(() => _enEdicion = true);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildBannerBoton(
+                  icon: Icons.logout,
+                  label: 'Cerrar Sesión',
+                  onPressed: _cerrarSesion,
+                ),
               ),
             ],
           ),
