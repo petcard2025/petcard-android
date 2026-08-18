@@ -3,7 +3,7 @@ import 'screens/prueba_screen.dart';
 import 'screens/perfil_screen.dart';
 import 'screens/mis_mascotas_screen.dart';
 import 'screens/login_screen.dart';
-import 'registro.dart';
+import 'screens/register_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -23,10 +23,10 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // RUTAS
-      initialRoute: '/registro',
+      initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
-        '/registro': (context) => const RegisterPage(),
+        '/registro': (context) => const RegisterScreen(),
         '/prueba': (context) => const PruebaScreen(),
         '/perfil': (context) => const PerfilScreen(),
         '/mis-mascotas': (context) => const MisMascotasScreen(),
