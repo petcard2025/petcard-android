@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'screens/prueba_screen.dart';
 import 'screens/perfil_screen.dart';
 import 'screens/mis_mascotas_screen.dart';
 import 'screens/login_screen.dart';
@@ -8,6 +7,7 @@ import 'screens/citas_screen.dart';
 import 'screens/main_nav_screen.dart';
 import 'screens/inicio_screen.dart';
 import 'screens/alimentacion_screen.dart';
+import 'screens/landing_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -27,12 +27,12 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // RUTAS
-      initialRoute: '/login',
+      initialRoute: '/landing',
       routes: {
         '/login': (context) => const LoginScreen(),
         '/registro': (context) => const RegisterScreen(),
-        '/prueba': (context) => const PruebaScreen(),
         '/perfil': (context) => const PerfilScreen(),
+        '/landing': (context) => const LandingScreen(),
         '/mis-mascotas': (context) => const MisMascotasScreen(),
         '/citas': (context) => const CitasScreen(),
         // '/home' es la vista principal tras iniciar sesión: contiene la
@@ -42,9 +42,9 @@ class MyApp extends StatelessWidget {
         '/alimentacion': (context) => const AlimentacionScreen(),
         // Pantallas referenciadas desde Inicio pero aún por implementar
         '/carnet': (context) =>
-        const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
+            const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
         '/notificaciones': (context) =>
-        const _ProximamenteScreen(titulo: 'Recordatorios'),
+            const _ProximamenteScreen(titulo: 'Recordatorios'),
       },
     );
   }
