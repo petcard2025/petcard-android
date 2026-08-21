@@ -1,0 +1,1 @@
+{"flutter":{"platforms":{"android":{"default":{"projectId":"petcard-7a01a","appId":"1:1030910480459:android:f3001fb03c8767af267dce","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"petcard-7a01a","configurations":{"android":"1:1030910480459:android:f3001fb03c8767af267dce","ios":"1:1030910480459:ios:9b9ed088cf391524267dce"}}}}}}
