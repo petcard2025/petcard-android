@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/perfil_screen.dart';
 import 'screens/mis_mascotas_screen.dart';
 import 'screens/login_screen.dart';
@@ -14,7 +15,14 @@ import 'screens/Admin_usuarios_screen.dart';
 import 'screens/ Admin_home_screen.dart';
 import 'screens/landing_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://evaanefrbursctyosbbp.supabase.co',
+    publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YWFuZWZyYnVyc2N0eW9zYmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMTQwNjIsImV4cCI6MjEwMjU5MDA2Mn0.c5p9ddkHTiLu5yK2VvezVxxUFvoPk16c5yzn7P_ELZc',                  // ← Reemplaza con tu anon key
+  );
+
   runApp(const MyApp());
 }
 
