@@ -2,9 +2,12 @@
 // MIS MASCOTAS SCREEN - Gestión de mascotas
 // ============================================================
 
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 class MisMascotasScreen extends StatefulWidget {
   const MisMascotasScreen({super.key});
@@ -32,6 +35,11 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
   Map<String, dynamic>? _mascotaEditando;
   bool _editando = false;
 
+  // Foto de la mascota (cámara o galería)
+  final ImagePicker _imagePicker = ImagePicker();
+  File? _fotoSeleccionada; // Foto nueva elegida en esta sesión del formulario
+  String? _fotoPathExistente; // Ruta ya guardada, cuando se está editando
+
   // ============================================================
   // CICLO DE VIDA
   // ============================================================
@@ -49,6 +57,114 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
     _edadController.dispose();
     _pesoController.dispose();
     super.dispose();
+  }
+
+  // ============================================================
+  // FOTO DE LA MASCOTA (cámara / galería)
+  // ============================================================
+
+  // Muestra un panel para elegir entre tomar una foto o buscarla en galería
+  Future<void> _mostrarOpcionesFoto() async {
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: Text(
+                    'Foto de la mascota',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera, color: Color(0xFF7C3AED)),
+                title: const Text('Tomar foto'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _seleccionarFoto(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: Color(0xFF7C3AED)),
+                title: const Text('Elegir de la galería'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _seleccionarFoto(ImageSource.gallery);
+                },
+              ),
+              if (_fotoSeleccionada != null || _fotoPathExistente != null)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('Quitar foto', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _fotoSeleccionada = null;
+                      _fotoPathExistente = null;
+                    });
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Abre la cámara o la galería según la fuente elegida
+  Future<void> _seleccionarFoto(ImageSource fuente) async {
+    try {
+      final XFile? imagen = await _imagePicker.pickImage(
+        source: fuente,
+        imageQuality: 80, // comprime un poco para no llenar el almacenamiento
+        maxWidth: 1200,
+      );
+
+      if (imagen == null) return; // el usuario canceló
+
+      setState(() {
+        _fotoSeleccionada = File(imagen.path);
+        _fotoPathExistente = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarAlerta(
+        'Error',
+        '❌ No se pudo acceder a la cámara o galería. Verifica los permisos de la app.',
+      );
+      debugPrint('Error seleccionando foto: $e');
+    }
+  }
+
+  // Copia la foto elegida a una carpeta permanente de la app, para que
+  // siga existiendo aunque el archivo temporal de la cámara/galería se borre
+  Future<String?> _guardarFotoPermanente(File foto, int idMascota) async {
+    try {
+      final directorioApp = await getApplicationDocumentsDirectory();
+      final carpetaFotos = Directory('${directorioApp.path}/mascotas_fotos');
+      if (!await carpetaFotos.exists()) {
+        await carpetaFotos.create(recursive: true);
+      }
+      final extension = foto.path.split('.').last;
+      final nuevoPath = '${carpetaFotos.path}/mascota_$idMascota.$extension';
+      final nuevoArchivo = await foto.copy(nuevoPath);
+      return nuevoArchivo.path;
+    } catch (e) {
+      debugPrint('Error guardando foto: $e');
+      return null;
+    }
   }
 
   // ============================================================
@@ -83,13 +199,23 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
+      final int nuevoId = DateTime.now().millisecondsSinceEpoch;
+
+      // Si el usuario tomó/eligió una foto, la copiamos a una ubicación
+      // permanente antes de guardarla, para que no se pierda.
+      String? fotoPath;
+      if (_fotoSeleccionada != null) {
+        fotoPath = await _guardarFotoPermanente(_fotoSeleccionada!, nuevoId);
+      }
+
       final Map<String, dynamic> nuevaMascota = {
-        'id': DateTime.now().millisecondsSinceEpoch,
+        'id': nuevoId,
         'nombre': _nombreController.text.trim(),
         'especie': _especieController.text.trim(),
         'raza': _razaController.text.trim(),
         'edad': _edadController.text.trim(),
         'peso': _pesoController.text.trim(),
+        'foto': fotoPath,
         'fechaRegistro': DateTime.now().toIso8601String(),
       };
 
@@ -123,10 +249,23 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       final prefs = await SharedPreferences.getInstance();
 
       final index = _mascotas.indexWhere(
-        (m) => m['id'] == _mascotaEditando!['id'],
+            (m) => m['id'] == _mascotaEditando!['id'],
       );
 
       if (index != -1) {
+        // Si el usuario eligió una foto nueva, la copiamos a una ubicación
+        // permanente; si no tocó la foto, conservamos la que ya tenía.
+        String? fotoPath = _mascotas[index]['foto'];
+        if (_fotoSeleccionada != null) {
+          fotoPath = await _guardarFotoPermanente(
+            _fotoSeleccionada!,
+            _mascotaEditando!['id'],
+          );
+        } else if (_fotoPathExistente == null) {
+          // El usuario pulsó "Quitar foto"
+          fotoPath = null;
+        }
+
         _mascotas[index] = {
           ..._mascotas[index],
           'nombre': _nombreController.text.trim(),
@@ -134,6 +273,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
           'raza': _razaController.text.trim(),
           'edad': _edadController.text.trim(),
           'peso': _pesoController.text.trim(),
+          'foto': fotoPath,
         };
 
         await _guardarEnPrefs(prefs);
@@ -201,6 +341,8 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       _razaController.text = mascota['raza'] ?? '';
       _edadController.text = mascota['edad'] ?? '';
       _pesoController.text = mascota['peso'] ?? '';
+      _fotoSeleccionada = null;
+      _fotoPathExistente = mascota['foto'];
     });
   }
 
@@ -212,6 +354,8 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
     _pesoController.clear();
     _mascotaEditando = null;
     _editando = false;
+    _fotoSeleccionada = null;
+    _fotoPathExistente = null;
   }
 
   // ============================================================
@@ -281,92 +425,92 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ==========================================================
-                  // TÍTULO Y CONTADOR
-                  // ==========================================================
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Mis Mascotas',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A1A2E),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${_mascotas.length} mascotas',
-                          style: const TextStyle(
-                            color: Color(0xFF7C3AED),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ==========================================================
+            // TÍTULO Y CONTADOR
+            // ==========================================================
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Mis Mascotas',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A1A2E),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Gestiona la información de tus mascotas',
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
                   ),
-                  const SizedBox(height: 20),
-
-                  // ==========================================================
-                  // FORMULARIO DE NUEVA MASCOTA
-                  // ==========================================================
-                  if (_mostrarFormulario) _buildFormularioMascota(),
-
-                  // ==========================================================
-                  // LISTA DE MASCOTAS
-                  // ==========================================================
-                  if (_mascotas.isEmpty && !_mostrarFormulario)
-                    _buildEmptyState()
-                  else if (!_mostrarFormulario)
-                    ..._mascotas.map((mascota) => _buildMascotaCard(mascota)),
-
-                  const SizedBox(height: 20),
-
-                  // ==========================================================
-                  // BOTÓN AGREGAR MASCOTA (cuando no hay formulario)
-                  // ==========================================================
-                  if (!_mostrarFormulario)
-                    Center(
-                      child: TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _mostrarFormulario = true;
-                            _editando = false;
-                            _limpiarFormulario();
-                          });
-                        },
-                        icon: const Icon(Icons.add, color: Color(0xFF7C3AED)),
-                        label: const Text(
-                          'Agregar nueva mascota',
-                          style: TextStyle(
-                            color: Color(0xFF7C3AED),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${_mascotas.length} mascotas',
+                    style: const TextStyle(
+                      color: Color(0xFF7C3AED),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 4),
+            Text(
+              'Gestiona la información de tus mascotas',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 20),
+
+            // ==========================================================
+            // FORMULARIO DE NUEVA MASCOTA
+            // ==========================================================
+            if (_mostrarFormulario) _buildFormularioMascota(),
+
+            // ==========================================================
+            // LISTA DE MASCOTAS
+            // ==========================================================
+            if (_mascotas.isEmpty && !_mostrarFormulario)
+              _buildEmptyState()
+            else if (!_mostrarFormulario)
+              ..._mascotas.map((mascota) => _buildMascotaCard(mascota)),
+
+            const SizedBox(height: 20),
+
+            // ==========================================================
+            // BOTÓN AGREGAR MASCOTA (cuando no hay formulario)
+            // ==========================================================
+            if (!_mostrarFormulario)
+              Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _mostrarFormulario = true;
+                      _editando = false;
+                      _limpiarFormulario();
+                    });
+                  },
+                  icon: const Icon(Icons.add, color: Color(0xFF7C3AED)),
+                  label: const Text(
+                    'Agregar nueva mascota',
+                    style: TextStyle(
+                      color: Color(0xFF7C3AED),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -429,6 +573,10 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
             style: TextStyle(fontSize: 13, color: Colors.grey[600]),
           ),
           const SizedBox(height: 16),
+
+          // Foto de la mascota
+          Center(child: _buildSelectorFoto()),
+          const SizedBox(height: 20),
 
           // Nombre
           _buildCampoFormulario(
@@ -496,6 +644,83 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // WIDGET - SELECTOR DE FOTO (cámara / galería)
+  // ============================================================
+  Widget _buildSelectorFoto() {
+    final tieneFotoNueva = _fotoSeleccionada != null;
+    final tieneFotoExistente = !tieneFotoNueva && _fotoPathExistente != null;
+
+    Widget contenidoCirculo;
+    if (tieneFotoNueva) {
+      contenidoCirculo = ClipOval(
+        child: Image.file(
+          _fotoSeleccionada!,
+          width: 96,
+          height: 96,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else if (tieneFotoExistente) {
+      contenidoCirculo = ClipOval(
+        child: Image.file(
+          File(_fotoPathExistente!),
+          width: 96,
+          height: 96,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Icon(
+            Icons.pets,
+            size: 36,
+            color: Colors.grey[400],
+          ),
+        ),
+      );
+    } else {
+      contenidoCirculo = Icon(
+        Icons.add_a_photo_outlined,
+        size: 30,
+        color: Colors.grey[400],
+      );
+    }
+
+    return GestureDetector(
+      onTap: _mostrarOpcionesFoto,
+      child: Stack(
+        children: [
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF7C3AED).withOpacity(0.08),
+              border: Border.all(
+                color: const Color(0xFF7C3AED).withOpacity(0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Center(child: contenidoCirculo),
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(
+                color: Color(0xFF7C3AED),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.camera_alt,
+                size: 14,
+                color: Colors.white,
               ),
             ),
           ),
@@ -573,7 +798,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       ),
       child: Row(
         children: [
-          // Avatar
+          // Avatar (foto de la mascota, o ícono si no tiene)
           Container(
             width: 56,
             height: 56,
@@ -581,7 +806,22 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
               color: const Color(0xFF7C3AED).withOpacity(0.1),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(
+            child: (mascota['foto'] != null && mascota['foto'].toString().isNotEmpty)
+                ? ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.file(
+                File(mascota['foto']),
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  _getIconForEspecie(mascota['especie'] ?? ''),
+                  color: const Color(0xFF7C3AED),
+                  size: 28,
+                ),
+              ),
+            )
+                : Icon(
               _getIconForEspecie(mascota['especie'] ?? ''),
               color: const Color(0xFF7C3AED),
               size: 28,
