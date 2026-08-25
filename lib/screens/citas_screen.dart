@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -58,6 +57,9 @@ class _CitasScreenState extends State<CitasScreen> {
   // Controladores para edición
   Map<String, dynamic>? _citaEditando;
   bool _editando = false;
+
+  // Última cita creada (para mostrar la confirmación tras agendar)
+  Map<String, dynamic>? _citaRecienCreada;
 
   // ============================================================
   // CICLO DE VIDA
@@ -157,11 +159,10 @@ class _CitasScreenState extends State<CitasScreen> {
       setState(() {
         _mostrarFormulario = false;
         _editando = false;
+        _citaRecienCreada = nuevaCita;
       });
 
       await _cargarDatos();
-      if (!mounted) return;
-      _mostrarAlerta('Éxito', '✅ Cita agendada correctamente');
     } catch (e) {
       if (mounted) {
         _mostrarAlerta('Error', '❌ Error al guardar la cita');
@@ -499,6 +500,7 @@ class _CitasScreenState extends State<CitasScreen> {
               setState(() {
                 _mostrarFormulario = true;
                 _editando = false;
+                _citaRecienCreada = null;
                 _limpiarFormulario();
               });
             },
@@ -559,19 +561,20 @@ class _CitasScreenState extends State<CitasScreen> {
             if (_mostrarFormulario) _buildFormularioCita(),
 
             // ==========================================================
-            // LISTA DE CITAS
+            // CONFIRMACIÓN DE CITA RECIÉN CREADA
             // ==========================================================
-            if (_citas.isEmpty && !_mostrarFormulario)
-              _buildEmptyState()
-            else if (!_mostrarFormulario)
-              ..._citas.map((cita) => _buildCitaCard(cita)),
-
-            const SizedBox(height: 20),
+            if (!_mostrarFormulario && _citaRecienCreada != null)
+              _buildConfirmacionCita(),
 
             // ==========================================================
-            // BOTÓN NUEVA CITA (cuando no hay formulario)
+            // LISTA DE CITAS (gestión completa)
             // ==========================================================
-            if (!_mostrarFormulario)
+            if (!_mostrarFormulario && _citaRecienCreada == null) ...[
+              if (_citas.isEmpty)
+                _buildEmptyState()
+              else
+                ..._citas.map((cita) => _buildCitaCard(cita)),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -599,9 +602,91 @@ class _CitasScreenState extends State<CitasScreen> {
                   ),
                 ),
               ),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  // ============================================================
+  // WIDGET - CONFIRMACIÓN DE CITA CREADA
+  // ============================================================
+  Widget _buildConfirmacionCita() {
+    final cita = _citaRecienCreada!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF10B981).withValues(alpha: 0.3),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF10B981),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '¡Cita agendada!',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[900],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Tu cita quedó registrada correctamente',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Tarjeta con los datos de la cita que se acaba de crear
+        _buildCitaCard(cita),
+        const SizedBox(height: 8),
+
+        // Botón para ir a ver la gestión completa de citas
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => setState(() => _citaRecienCreada = null),
+            icon: const Icon(Icons.event_note, color: kMorado),
+            label: const Text(
+              'Ver la gestión de tus citas',
+              style: TextStyle(color: kMorado, fontWeight: FontWeight.w600),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: kMorado),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

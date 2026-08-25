@@ -40,6 +40,11 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const MainNavScreen(),
         '/inicio': (context) => const InicioScreen(),
         '/alimentacion': (context) => const AlimentacionScreen(),
+        '/admin-alimentacion': (context) => const AdminAlimentacionScreen(),
+        '/admin-servicios': (context) => const AdminServiciosScreen(),
+        '/admin-notificaciones': (context) => const AdminNotificacionesScreen(),
+        '/admin-usuarios': (context) => const AdminUsuariosScreen(),
+        '/admin': (context) => const AdminHomeScreen(),
         // Pantallas referenciadas desde Inicio pero aún por implementar
         '/carnet': (context) =>
             const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
