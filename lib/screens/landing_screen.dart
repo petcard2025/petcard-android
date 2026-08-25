@@ -221,21 +221,21 @@ class _ResponsiveServices extends StatelessWidget {
               icon: Icons.calendar_month_outlined,
               title: 'Citas sin complicaciones',
               description:
-              'Agenda visitas y mantén a la vista las próximas consultas de tu mascota.',
+                  'Agenda visitas y mantén a la vista las próximas consultas de tu mascota.',
               color: LandingScreen.blue,
             ),
             _ServiceCard(
               icon: Icons.vaccines_outlined,
               title: 'Vacunas al día',
               description:
-              'Consulta su carnet y recibe recordatorios para no pasar por alto una dosis.',
+                  'Consulta su carnet y recibe recordatorios para no pasar por alto una dosis.',
               color: Color(0xFF059669),
             ),
             _ServiceCard(
               icon: Icons.restaurant_outlined,
               title: 'Mejor alimentación',
               description:
-              'Guarda recomendaciones y planes nutricionales pensados para su bienestar.',
+                  'Guarda recomendaciones y planes nutricionales pensados para su bienestar.',
               color: Color(0xFF7C3AED),
             ),
           ].map((card) => SizedBox(width: width, child: card)).toList(),
@@ -337,15 +337,15 @@ class _CarePanel extends StatelessWidget {
           final content = const _CareDetails();
           return compact
               ? Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [content, const SizedBox(height: 24), action],
-          )
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [content, const SizedBox(height: 24), action],
+                )
               : Row(
-            children: [
-              const Expanded(child: _CareDetails()),
-              action,
-            ],
-          );
+                  children: [
+                    const Expanded(child: _CareDetails()),
+                    action,
+                  ],
+                );
         },
       ),
     );
