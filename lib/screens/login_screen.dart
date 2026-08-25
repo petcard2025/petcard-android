@@ -43,7 +43,19 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Inicio de sesión exitoso')),
         );
-        Navigator.pushReplacementNamed(context, '/home');
+
+        // Revisamos el rol del usuario que devolvió el backend para
+        // decidir a qué pantalla lo mandamos.
+        final usuario = _authService.usuarioActual;
+        final rol = (usuario?['Rol'] ?? usuario?['rol'] ?? '')
+            .toString()
+            .toLowerCase();
+
+        if (rol == 'admin' || rol == 'administrador') {
+          Navigator.pushReplacementNamed(context, '/admin');
+        } else {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
       }
     } on AuthException catch (e) {
       if (mounted) {
