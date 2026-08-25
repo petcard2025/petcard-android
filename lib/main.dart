@@ -8,11 +8,6 @@ import 'screens/citas_screen.dart';
 import 'screens/main_nav_screen.dart';
 import 'screens/inicio_screen.dart';
 import 'screens/alimentacion_screen.dart';
-import 'screens/admin_alimentacion_screen.dart';
-import 'screens/admin_servicios_screen.dart';
-import 'screens/Admin_notificaciones_screen.dart';
-import 'screens/Admin_usuarios_screen.dart';
-import 'screens/ Admin_home_screen.dart';
 import 'screens/landing_screen.dart';
 
 void main() async {
@@ -60,9 +55,9 @@ class MyApp extends StatelessWidget {
         '/admin': (context) => const AdminHomeScreen(),
         // Pantallas referenciadas desde Inicio pero aún por implementar
         '/carnet': (context) =>
-        const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
+            const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
         '/notificaciones': (context) =>
-        const _ProximamenteScreen(titulo: 'Recordatorios'),
+            const _ProximamenteScreen(titulo: 'Recordatorios'),
       },
     );
   }
