@@ -783,7 +783,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       child: Column(
         children: [
           const Text(
-            '© 2024 PetCard. Todos los derechos reservados.',
+            '© 2026 PetCard. Todos los derechos reservados.',
             style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ],
