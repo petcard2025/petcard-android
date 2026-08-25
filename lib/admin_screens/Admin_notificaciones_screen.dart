@@ -1,9 +1,5 @@
 // ============================================================
 // ADMIN · NOTIFICACIONES SCREEN
-// Consulta y envío de notificaciones a los usuarios.
-// Mismo diseño que el resto de la app (AppBar azul, cards
-// blancas con sombra suave, bottom sheets para formularios),
-// consumiendo el backend real como el panel admin de la web.
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -17,14 +13,7 @@ class AdminNotificacionesScreen extends StatefulWidget {
 }
 
 class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
-  // ============================================================
-  // COLORES (igual que el resto de la app)
-  // ============================================================
   static const Color kAzul = Color(0xFF2563EB);
-  static const Color kAzulBg = Color(0xFFEFF6FF);
-  static const Color kAmarillo = Color(0xFFCA8A04);
-  static const Color kAmarilloBg = Color(0xFFFEF9C3);
-  static const Color kGrisBg = Color(0xFFF3F4F6);
   static const Color kRojo = Color(0xFFDC2626);
 
   final ApiService _api = ApiService();
@@ -39,11 +28,10 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
   String _filtroLeida = 'Todas';
   final List<String> _opcionesLeida = ['Todas', 'Leídas', 'No leídas'];
 
-  // Formulario nueva notificación
   dynamic _usuarioSeleccionadoId;
   String _tipoSeleccionado = 'General';
   String _canalSeleccionado = 'Sistema';
-  final _mensajeCtrl = TextEditingController();
+  final TextEditingController _mensajeCtrl = TextEditingController();
   bool _enviando = false;
 
   @override
@@ -76,7 +64,7 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
         return fb.compareTo(fa);
       });
     } catch (e) {
-      _error = 'No se pudo conectar con el servidor.';
+      _error = e.toString().replaceFirst('Exception: ', '');
     }
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -105,9 +93,6 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
     }).toList();
   }
 
-  // ============================================================
-  // ACCIONES
-  // ============================================================
   void _abrirNueva() {
     _usuarioSeleccionadoId = null;
     _tipoSeleccionado = 'General';
@@ -140,7 +125,12 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
       Navigator.pop(context);
       await _cargarDatos();
       if (!mounted) return;
-      _mostrarSnack('Notificación enviada');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Notificación enviada'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
     } catch (e) {
       _mostrarAlerta('Error', e.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -152,6 +142,12 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
     try {
       await _api.marcarNotificacionLeida(n['ID_notificacion']);
       setState(() => n['Leida'] = 1);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Marcada como leída'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
     } catch (e) {
       _mostrarAlerta('Error', 'No se pudo marcar como leída.');
     }
@@ -164,7 +160,10 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
         title: const Text('¿Eliminar notificación?'),
         content: const Text('Esta acción no se puede deshacer.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Eliminar', style: TextStyle(color: kRojo)),
@@ -173,12 +172,16 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
       ),
     );
     if (confirmar != true) return;
-
     try {
       await _api.eliminarNotificacion(n['ID_notificacion']);
       await _cargarDatos();
       if (!mounted) return;
-      _mostrarSnack('Notificación eliminada');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🗑️ Notificación eliminada'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } catch (e) {
       _mostrarAlerta('Error', e.toString().replaceFirst('Exception: ', ''));
     }
@@ -192,14 +195,13 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
         title: Text(titulo),
         content: Text(mensaje),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
         ],
       ),
     );
-  }
-
-  void _mostrarSnack(String mensaje) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   String _iconoTipo(String tipo) {
@@ -217,9 +219,6 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
         '${f.hour.toString().padLeft(2, '0')}:${f.minute.toString().padLeft(2, '0')}';
   }
 
-  // ============================================================
-  // UI
-  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -232,12 +231,19 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirNueva,
         backgroundColor: kAzul,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Nueva Notificación', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        label: const Text(
+          'Nueva Notificación',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: kAzul))
@@ -260,7 +266,7 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: kAzul.withValues(alpha: 0.1),
+                      color: kAzul.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -283,7 +289,7 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
               else if (_notificacionesFiltradas.isEmpty)
                 _buildEstadoMensaje(
                   icono: Icons.notifications_none,
-                  texto: 'No hay notificaciones que mostrar.',
+                  texto: 'No hay notificaciones.',
                   color: Colors.grey,
                 )
               else
@@ -325,10 +331,22 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: _dropdownFiltro('Tipo', _filtroTipo, _tipos, (v) => setState(() => _filtroTipo = v!))),
+            Expanded(
+              child: _dropdownFiltro(
+                'Tipo',
+                _filtroTipo,
+                _tipos,
+                    (v) => setState(() => _filtroTipo = v!),
+              ),
+            ),
             const SizedBox(width: 8),
             Expanded(
-              child: _dropdownFiltro('Estado', _filtroLeida, _opcionesLeida, (v) => setState(() => _filtroLeida = v!)),
+              child: _dropdownFiltro(
+                'Estado',
+                _filtroLeida,
+                _opcionesLeida,
+                    (v) => setState(() => _filtroLeida = v!),
+              ),
             ),
           ],
         ),
@@ -336,7 +354,12 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
     );
   }
 
-  Widget _dropdownFiltro(String label, String valor, List<String> opciones, void Function(String?) onChanged) {
+  Widget _dropdownFiltro(
+      String label,
+      String valor,
+      List<String> opciones,
+      void Function(String?) onChanged,
+      ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
@@ -350,7 +373,12 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
           isExpanded: true,
           icon: const Icon(Icons.expand_more, size: 18),
           items: opciones
-              .map((o) => DropdownMenuItem(value: o, child: Text(o, style: const TextStyle(fontSize: 13))))
+              .map(
+                (o) => DropdownMenuItem(
+              value: o,
+              child: Text(o, style: const TextStyle(fontSize: 13)),
+            ),
+          )
               .toList(),
           onChanged: onChanged,
         ),
@@ -358,14 +386,18 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
     );
   }
 
-  Widget _buildEstadoMensaje({required IconData icono, required String texto, required Color color}) {
+  Widget _buildEstadoMensaje({
+    required IconData icono,
+    required String texto,
+    required Color color,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40),
       alignment: Alignment.center,
       child: Column(
         children: [
-          Icon(icono, size: 40, color: color.withValues(alpha: 0.6)),
+          Icon(icono, size: 40, color: color.withOpacity(0.6)),
           const SizedBox(height: 10),
           Text(texto, style: TextStyle(color: Colors.grey[600], fontSize: 13.5)),
         ],
@@ -383,9 +415,18 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border(left: BorderSide(color: leida ? Colors.grey[300]! : kAzul, width: 4)),
+        border: Border(
+          left: BorderSide(
+            color: leida ? Colors.grey[300]! : kAzul,
+            width: 4,
+          ),
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Opacity(
@@ -411,9 +452,15 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
                         spacing: 6,
                         runSpacing: 4,
                         children: [
-                          if (tipo.isNotEmpty) _badge(tipo, kAzul, kAzulBg),
-                          _badge((n['Canal'] ?? '').toString(), Colors.grey[700]!, kGrisBg),
-                          if (!leida) _badge('No leída', kAmarillo, kAmarilloBg),
+                          if (tipo.isNotEmpty)
+                            _badge(tipo, kAzul, const Color(0xFFEFF6FF)),
+                          _badge(
+                            (n['Canal'] ?? '').toString(),
+                            Colors.grey[700]!,
+                            const Color(0xFFF3F4F6),
+                          ),
+                          if (!leida)
+                            _badge('No leída', const Color(0xFFCA8A04), const Color(0xFFFEF9C3)),
                         ],
                       ),
                     ],
@@ -441,7 +488,9 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
                         foregroundColor: kAzul,
                         side: const BorderSide(color: kAzul),
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ),
@@ -456,7 +505,9 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
                       foregroundColor: kRojo,
                       side: const BorderSide(color: kRojo),
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ),
@@ -471,14 +522,24 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
   Widget _badge(String texto, Color color, Color bg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(texto, style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        texto,
+        style: TextStyle(
+          color: color,
+          fontSize: 10.5,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
-  // ------------------------------------------------------------
-  // FORMULARIO (bottom sheet) nueva notificación
-  // ------------------------------------------------------------
+  // ============================================================
+  // FORMULARIO
+  // ============================================================
   Widget _buildFormulario(void Function(void Function()) setSheetState) {
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -491,19 +552,26 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Center(
                 child: Container(
                   width: 40,
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(4)),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
               ),
               Row(
                 children: [
                   const Expanded(
-                    child: Text('Nueva Notificación', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'Nueva Notificación',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
@@ -518,10 +586,14 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
                 label: 'Usuario',
                 value: _usuarioSeleccionadoId,
                 items: _usuarios
-                    .map((u) => DropdownMenuItem(
-                  value: u['ID_usuario'],
-                  child: Text('${u['Nombre'] ?? 'Sin nombre'} (${u['Rol'] ?? ''})'),
-                ))
+                    .map(
+                      (u) => DropdownMenuItem(
+                    value: u['ID_usuario'],
+                    child: Text(
+                      '${u['Nombre'] ?? 'Sin nombre'} (${u['Rol'] ?? ''})',
+                    ),
+                  ),
+                )
                     .toList(),
                 onChanged: (v) => setSheetState(() => _usuarioSeleccionadoId = v),
               ),
@@ -554,11 +626,17 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kAzul,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: Text(
                     _enviando ? 'Enviando...' : 'Enviar',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ),
@@ -586,7 +664,7 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: kGrisBg,
+              color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.grey[300]!),
             ),
@@ -605,7 +683,12 @@ class _AdminNotificacionesScreenState extends State<AdminNotificacionesScreen> {
     );
   }
 
-  Widget _campoTexto(String label, TextEditingController controller, {String? hint, int maxLines = 1}) {
+  Widget _campoTexto(
+      String label,
+      TextEditingController controller, {
+        String? hint,
+        int maxLines = 1,
+      }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(

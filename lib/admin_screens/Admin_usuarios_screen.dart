@@ -1,9 +1,5 @@
 // ============================================================
 // ADMIN · USUARIOS SCREEN
-// Consulta y administra el nombre y rol de todos los usuarios.
-// Mismo diseño que el resto de la app (AppBar azul, cards
-// blancas con sombra suave), consumiendo el backend real como
-// el panel admin de la web.
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -17,15 +13,10 @@ class AdminUsuariosScreen extends StatefulWidget {
 }
 
 class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
-  // ============================================================
-  // COLORES (igual que el resto de la app)
-  // ============================================================
   static const Color kAzul = Color(0xFF2563EB);
   static const Color kAzulBg = Color(0xFFEFF6FF);
   static const Color kVerde = Color(0xFF16A34A);
   static const Color kVerdeBg = Color(0xFFDCFCE7);
-  static const Color kGris = Color(0xFF6B7280);
-  static const Color kGrisBg = Color(0xFFF3F4F6);
   static const Color kRojo = Color(0xFFDC2626);
 
   final ApiService _api = ApiService();
@@ -33,14 +24,12 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _usuarios = [];
-
   String _busqueda = '';
   String _filtroRol = 'Todos';
   final List<String> _roles = ['Todos', 'administrador', 'veterinario', 'cliente'];
 
-  // Edición inline
   dynamic _editandoId;
-  final _nombreEditCtrl = TextEditingController();
+  final TextEditingController _nombreEditCtrl = TextEditingController();
   String _rolEditado = 'cliente';
   bool _guardando = false;
 
@@ -80,9 +69,6 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
     }).toList();
   }
 
-  // ============================================================
-  // ACCIONES
-  // ============================================================
   void _abrirEdicion(Map<String, dynamic> u) {
     setState(() {
       _editandoId = u['ID_usuario'];
@@ -105,7 +91,9 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
       _editandoId = null;
       await _cargarUsuarios();
       if (!mounted) return;
-      _mostrarSnack('Usuario actualizado');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Usuario actualizado'), backgroundColor: Color(0xFF10B981)),
+      );
     } catch (e) {
       _mostrarAlerta('Error', e.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -118,9 +106,7 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('¿Eliminar usuario?'),
-        content: Text(
-          '¿Deseas eliminar a ${u['Nombre'] ?? ''}? Esta acción no se puede deshacer.',
-        ),
+        content: Text('¿Deseas eliminar a ${u['Nombre'] ?? ''}? Esta acción no se puede deshacer.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
           TextButton(
@@ -131,12 +117,13 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
       ),
     );
     if (confirmar != true) return;
-
     try {
       await _api.eliminarUsuario(u['ID_usuario']);
       await _cargarUsuarios();
       if (!mounted) return;
-      _mostrarSnack('Usuario eliminado');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('🗑️ Usuario eliminado'), backgroundColor: Colors.red),
+      );
     } catch (e) {
       _mostrarAlerta('Error', e.toString().replaceFirst('Exception: ', ''));
     }
@@ -156,25 +143,18 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
     );
   }
 
-  void _mostrarSnack(String mensaje) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
-  }
-
   Color _colorRol(String rol) {
     if (rol == 'administrador') return kAzul;
     if (rol == 'veterinario') return kVerde;
-    return kGris;
+    return Colors.grey;
   }
 
   Color _bgRol(String rol) {
     if (rol == 'administrador') return kAzulBg;
     if (rol == 'veterinario') return kVerdeBg;
-    return kGrisBg;
+    return const Color(0xFFF3F4F6);
   }
 
-  // ============================================================
-  // UI
-  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -182,11 +162,12 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
       appBar: AppBar(
         backgroundColor: kAzul,
         elevation: 0,
-        title: const Text(
-          'Usuarios · Admin',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Usuarios · Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: kAzul))
@@ -209,7 +190,7 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: kAzul.withValues(alpha: 0.1),
+                      color: kAzul.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -230,11 +211,7 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
               if (_error != null)
                 _buildEstadoMensaje(icono: Icons.wifi_off, texto: _error!, color: kRojo)
               else if (_usuariosFiltrados.isEmpty)
-                _buildEstadoMensaje(
-                  icono: Icons.people_outline,
-                  texto: 'No se encontraron usuarios.',
-                  color: Colors.grey,
-                )
+                _buildEstadoMensaje(icono: Icons.people_outline, texto: 'No se encontraron usuarios.', color: Colors.grey)
               else
                 ..._usuariosFiltrados.map(_buildUsuarioCard),
               const SizedBox(height: 24),
@@ -311,7 +288,7 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
       alignment: Alignment.center,
       child: Column(
         children: [
-          Icon(icono, size: 40, color: color.withValues(alpha: 0.6)),
+          Icon(icono, size: 40, color: color.withOpacity(0.6)),
           const SizedBox(height: 10),
           Text(texto, style: TextStyle(color: Colors.grey[600], fontSize: 13.5)),
         ],
@@ -339,7 +316,7 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -350,7 +327,7 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: _colorRol(rolActual).withValues(alpha: 0.15),
+                backgroundColor: _colorRol(rolActual).withOpacity(0.15),
                 child: Text(
                   iniciales.isEmpty ? '?' : iniciales,
                   style: TextStyle(color: _colorRol(rolActual), fontWeight: FontWeight.bold, fontSize: 13),
@@ -395,7 +372,7 @@ class _AdminUsuariosScreenState extends State<AdminUsuariosScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: kGrisBg,
+                color: const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey[300]!),
               ),

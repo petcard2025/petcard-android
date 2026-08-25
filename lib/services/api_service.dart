@@ -5,22 +5,17 @@ import 'package:http/io_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  // Dispositivo físico por USB → computador (usa "adb reverse tcp:3001 tcp:3001")
+  // Cambia esto según tu configuración
   static const String baseUrl = 'https://127.0.0.1:3001/api';
 
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
 
-  // ============================================================
-  // CLIENTE HTTP QUE ACEPTA EL CERTIFICADO AUTOFIRMADO DE DESARROLLO
-  // ⚠️ SOLO para 127.0.0.1 (tu backend local vía adb reverse). Nunca uses
-  // esto para dominios externos/producción — ahí sí debe validarse
-  // el certificado normalmente.
-  // ============================================================
+  // Cliente HTTP que acepta certificado autofirmado
   static http.Client _clienteHttp() {
     final httpClient = HttpClient()
       ..badCertificateCallback = (cert, host, port) {
-        return host == '127.0.0.1'; // solo confía en tu backend local
+        return host == '127.0.0.1';
       };
     return IOClient(httpClient);
   }
@@ -28,9 +23,8 @@ class ApiService {
   final http.Client _client = _clienteHttp();
 
   // ============================================================
-  // TOKEN LOCAL (JWT propio, guardado en el dispositivo)
+  // TOKEN
   // ============================================================
-
   Future<void> _guardarToken(String token) async {
     await _storage.write(key: _tokenKey, value: token);
   }
@@ -55,9 +49,8 @@ class ApiService {
   }
 
   // ============================================================
-  // LOGIN
+  // AUTH
   // ============================================================
-
   Future<Map<String, dynamic>> login({
     required String correo,
     required String contrasena,
@@ -70,9 +63,6 @@ class ApiService {
         'Contrasena': contrasena,
       }),
     );
-
-    print('LOGIN STATUS: ${response.statusCode}');
-    print('LOGIN RESPUESTA: ${response.body}');
 
     final data = _parseBody(response);
 
@@ -87,10 +77,6 @@ class ApiService {
 
     throw Exception(data['error'] ?? 'Error al iniciar sesión.');
   }
-
-  // ============================================================
-  // REGISTRO (usa tu endpoint normal de usuarios)
-  // ============================================================
 
   Future<Map<String, dynamic>> registrarUsuario({
     required String nombre,
@@ -111,9 +97,6 @@ class ApiService {
       }),
     );
 
-    print('REGISTRO STATUS: ${response.statusCode}');
-    print('REGISTRO RESPUESTA: ${response.body}');
-
     final data = _parseBody(response);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -123,33 +106,12 @@ class ApiService {
     throw Exception(data['error'] ?? 'Error al registrarse.');
   }
 
-  // ============================================================
-  // OBTENER MI USUARIO
-  // ============================================================
-
-  Future<Map<String, dynamic>> obtenerMiUsuario() async {
-    final headers = await _headersConToken();
-
-    final response = await _client.get(
-      Uri.parse('$baseUrl/auth/me'),
-      headers: headers,
-    );
-
-    final data = _parseBody(response);
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return data;
-    }
-
-    throw Exception(data['error'] ?? 'No se pudo obtener el usuario.');
+  Future<void> logout() async {
+    await borrarToken();
   }
-
-  // ============================================================
-  // RECUPERAR CONTRASEÑA
-  // ⚠️ El backend aún no envía correos reales — solo genera el
-  // token. Falta implementar el envío por email en el servidor.
-  // ============================================================
-
+// ============================================================
+// RECUPERAR CONTRASEÑA
+// ============================================================
   Future<void> solicitarRecuperacion(String correo) async {
     final response = await _client.post(
       Uri.parse('$baseUrl/auth/forgot-password'),
@@ -165,60 +127,99 @@ class ApiService {
 
     throw Exception(data['error'] ?? 'No se pudo procesar la solicitud.');
   }
-
   // ============================================================
-  // LOGOUT
+  // USUARIOS
   // ============================================================
-
-  Future<void> logout() async {
-    await borrarToken();
-  }
-
-  // ============================================================
-  // ADMIN · ALIMENTACIÓN (planes nutricionales)
-  // ============================================================
-
-  Future<List<Map<String, dynamic>>> obtenerPlanesAlimentacion() async {
+  Future<List<Map<String, dynamic>>> obtenerUsuarios() async {
     final headers = await _headersConToken();
-    final response = await _client.get(Uri.parse('$baseUrl/alimentacion'), headers: headers);
-    return _parseLista(response, 'No se pudieron obtener los planes.');
+    final response = await _client.get(
+      Uri.parse('$baseUrl/usuarios'),
+      headers: headers,
+    );
+    return _parseLista(response, 'No se pudieron obtener los usuarios.');
   }
 
-  Future<void> actualizarPlanAlimentacion(
-      dynamic id, Map<String, dynamic> datos) async {
+  Future<void> actualizarUsuario(dynamic id, Map<String, dynamic> datos) async {
     final headers = await _headersConToken();
     final response = await _client.put(
-      Uri.parse('$baseUrl/alimentacion/$id'),
+      Uri.parse('$baseUrl/usuarios/$id'),
       headers: headers,
       body: jsonEncode(datos),
     );
-    _verificarOk(response, 'No se pudo actualizar el plan.');
+    _verificarOk(response, 'No se pudo actualizar el usuario.');
   }
 
-  Future<void> eliminarPlanAlimentacion(dynamic id) async {
+  Future<void> eliminarUsuario(dynamic id) async {
     final headers = await _headersConToken();
-    final response =
-    await _client.delete(Uri.parse('$baseUrl/alimentacion/$id'), headers: headers);
-    _verificarOk(response, 'No se pudo eliminar el plan.');
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/usuarios/$id'),
+      headers: headers,
+    );
+    _verificarOk(response, 'No se pudo eliminar el usuario.');
   }
 
-  Future<void> crearPlanAlimentacion(Map<String, dynamic> datos) async {
+  // ============================================================
+  // CLIENTES
+  // ============================================================
+  Future<List<Map<String, dynamic>>> obtenerClientes() async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/clientes'),
+      headers: headers,
+    );
+    return _parseLista(response, 'No se pudieron obtener los clientes.');
+  }
+
+  // ============================================================
+  // MASCOTAS
+  // ============================================================
+  Future<List<Map<String, dynamic>>> obtenerMascotasAdmin() async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/mascotas'),
+      headers: headers,
+    );
+    return _parseLista(response, 'No se pudieron obtener las mascotas.');
+  }
+
+  Future<Map<String, dynamic>> crearMascota(Map<String, dynamic> datos) async {
     final headers = await _headersConToken();
     final response = await _client.post(
-      Uri.parse('$baseUrl/alimentacion'),
+      Uri.parse('$baseUrl/mascotas'),
       headers: headers,
       body: jsonEncode(datos),
     );
-    _verificarOk(response, 'No se pudo crear el plan.');
+    return _parseBodyOk(response, 'No se pudo crear la mascota.');
+  }
+
+  Future<void> actualizarMascota(dynamic id, Map<String, dynamic> datos) async {
+    final headers = await _headersConToken();
+    final response = await _client.put(
+      Uri.parse('$baseUrl/mascotas/$id'),
+      headers: headers,
+      body: jsonEncode(datos),
+    );
+    _verificarOk(response, 'No se pudo actualizar la mascota.');
+  }
+
+  Future<void> eliminarMascota(dynamic id) async {
+    final headers = await _headersConToken();
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/mascotas/$id'),
+      headers: headers,
+    );
+    _verificarOk(response, 'No se pudo eliminar la mascota.');
   }
 
   // ============================================================
-  // ADMIN · SERVICIOS
+  // SERVICIOS
   // ============================================================
-
   Future<List<Map<String, dynamic>>> obtenerServicios() async {
     final headers = await _headersConToken();
-    final response = await _client.get(Uri.parse('$baseUrl/servicios'), headers: headers);
+    final response = await _client.get(
+      Uri.parse('$baseUrl/servicios'),
+      headers: headers,
+    );
     return _parseLista(response, 'No se pudieron obtener los servicios.');
   }
 
@@ -244,18 +245,63 @@ class ApiService {
 
   Future<void> eliminarServicio(dynamic id) async {
     final headers = await _headersConToken();
-    final response =
-    await _client.delete(Uri.parse('$baseUrl/servicios/$id'), headers: headers);
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/servicios/$id'),
+      headers: headers,
+    );
     _verificarOk(response, 'No se pudo eliminar el servicio.');
   }
 
   // ============================================================
-  // ADMIN · NOTIFICACIONES
+  // PLANES DE ALIMENTACIÓN
   // ============================================================
+  Future<List<Map<String, dynamic>>> obtenerPlanesAlimentacion() async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/alimentacion'),
+      headers: headers,
+    );
+    return _parseLista(response, 'No se pudieron obtener los planes.');
+  }
 
+  Future<void> crearPlanAlimentacion(Map<String, dynamic> datos) async {
+    final headers = await _headersConToken();
+    final response = await _client.post(
+      Uri.parse('$baseUrl/alimentacion'),
+      headers: headers,
+      body: jsonEncode(datos),
+    );
+    _verificarOk(response, 'No se pudo crear el plan.');
+  }
+
+  Future<void> actualizarPlanAlimentacion(dynamic id, Map<String, dynamic> datos) async {
+    final headers = await _headersConToken();
+    final response = await _client.put(
+      Uri.parse('$baseUrl/alimentacion/$id'),
+      headers: headers,
+      body: jsonEncode(datos),
+    );
+    _verificarOk(response, 'No se pudo actualizar el plan.');
+  }
+
+  Future<void> eliminarPlanAlimentacion(dynamic id) async {
+    final headers = await _headersConToken();
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/alimentacion/$id'),
+      headers: headers,
+    );
+    _verificarOk(response, 'No se pudo eliminar el plan.');
+  }
+
+  // ============================================================
+  // NOTIFICACIONES
+  // ============================================================
   Future<List<Map<String, dynamic>>> obtenerNotificaciones() async {
     final headers = await _headersConToken();
-    final response = await _client.get(Uri.parse('$baseUrl/notificaciones'), headers: headers);
+    final response = await _client.get(
+      Uri.parse('$baseUrl/notificaciones'),
+      headers: headers,
+    );
     return _parseLista(response, 'No se pudieron obtener las notificaciones.');
   }
 
@@ -280,52 +326,110 @@ class ApiService {
 
   Future<void> eliminarNotificacion(dynamic id) async {
     final headers = await _headersConToken();
-    final response =
-    await _client.delete(Uri.parse('$baseUrl/notificaciones/$id'), headers: headers);
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/notificaciones/$id'),
+      headers: headers,
+    );
     _verificarOk(response, 'No se pudo eliminar la notificación.');
   }
 
   // ============================================================
-  // ADMIN · USUARIOS
+  // CITAS
   // ============================================================
-
-  Future<List<Map<String, dynamic>>> obtenerUsuarios() async {
+  Future<List<Map<String, dynamic>>> obtenerCitasAdmin() async {
     final headers = await _headersConToken();
-    final response = await _client.get(Uri.parse('$baseUrl/usuarios'), headers: headers);
-    return _parseLista(response, 'No se pudieron obtener los usuarios.');
+    final response = await _client.get(
+      Uri.parse('$baseUrl/citas'),
+      headers: headers,
+    );
+    return _parseLista(response, 'No se pudieron obtener las citas.');
   }
 
-  Future<void> actualizarUsuario(dynamic id, Map<String, dynamic> datos) async {
+  Future<Map<String, dynamic>> crearCita(Map<String, dynamic> datos) async {
     final headers = await _headersConToken();
-    final response = await _client.put(
-      Uri.parse('$baseUrl/usuarios/$id'),
+    final response = await _client.post(
+      Uri.parse('$baseUrl/citas'),
       headers: headers,
       body: jsonEncode(datos),
     );
-    _verificarOk(response, 'No se pudo actualizar el usuario.');
+    return _parseBodyOk(response, 'No se pudo crear la cita.');
   }
 
-  Future<void> eliminarUsuario(dynamic id) async {
+  Future<void> actualizarCita(dynamic id, Map<String, dynamic> datos) async {
     final headers = await _headersConToken();
-    final response =
-    await _client.delete(Uri.parse('$baseUrl/usuarios/$id'), headers: headers);
-    _verificarOk(response, 'No se pudo eliminar el usuario.');
+    final response = await _client.put(
+      Uri.parse('$baseUrl/citas/$id'),
+      headers: headers,
+      body: jsonEncode(datos),
+    );
+    _verificarOk(response, 'No se pudo actualizar la cita.');
+  }
+
+  Future<void> eliminarCita(dynamic id) async {
+    final headers = await _headersConToken();
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/citas/$id'),
+      headers: headers,
+    );
+    _verificarOk(response, 'No se pudo eliminar la cita.');
   }
 
   // ============================================================
-  // MASCOTAS (usado por formularios de admin)
+  // VACUNAS
   // ============================================================
-
-  Future<List<Map<String, dynamic>>> obtenerMascotasAdmin() async {
+  Future<List<Map<String, dynamic>>> obtenerVacunas() async {
     final headers = await _headersConToken();
-    final response = await _client.get(Uri.parse('$baseUrl/mascotas'), headers: headers);
-    return _parseLista(response, 'No se pudieron obtener las mascotas.');
+    final response = await _client.get(
+      Uri.parse('$baseUrl/vacunas'),
+      headers: headers,
+    );
+    return _parseLista(response, 'No se pudieron obtener las vacunas.');
+  }
+
+  Future<Map<String, dynamic>> crearVacuna(Map<String, dynamic> datos) async {
+    final headers = await _headersConToken();
+    final response = await _client.post(
+      Uri.parse('$baseUrl/vacunas'),
+      headers: headers,
+      body: jsonEncode(datos),
+    );
+    return _parseBodyOk(response, 'No se pudo crear la vacuna.');
+  }
+
+  Future<void> actualizarVacuna(dynamic id, Map<String, dynamic> datos) async {
+    final headers = await _headersConToken();
+    final response = await _client.put(
+      Uri.parse('$baseUrl/vacunas/$id'),
+      headers: headers,
+      body: jsonEncode(datos),
+    );
+    _verificarOk(response, 'No se pudo actualizar la vacuna.');
+  }
+
+  Future<void> eliminarVacuna(dynamic id) async {
+    final headers = await _headersConToken();
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/vacunas/$id'),
+      headers: headers,
+    );
+    _verificarOk(response, 'No se pudo eliminar la vacuna.');
+  }
+
+  // ============================================================
+  // VETERINARIOS
+  // ============================================================
+  Future<List<Map<String, dynamic>>> obtenerVeterinarios() async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/veterinarios'),
+      headers: headers,
+    );
+    return _parseLista(response, 'No se pudieron obtener los veterinarios.');
   }
 
   // ============================================================
   // HELPERS
   // ============================================================
-
   Map<String, dynamic> _parseBody(http.Response response) {
     try {
       final decoded = jsonDecode(response.body);
@@ -336,8 +440,27 @@ class ApiService {
     }
   }
 
-  /// Decodifica una respuesta que debe ser una lista (arrays JSON del backend).
-  List<Map<String, dynamic>> _parseLista(http.Response response, String mensajeError) {
+  Map<String, dynamic> _parseBodyOk(
+      http.Response response,
+      String mensajeError,
+      ) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) return decoded;
+        return {};
+      } catch (_) {
+        return {};
+      }
+    }
+    final data = _parseBody(response);
+    throw Exception(data['error'] ?? mensajeError);
+  }
+
+  List<Map<String, dynamic>> _parseLista(
+      http.Response response,
+      String mensajeError,
+      ) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       try {
         final decoded = jsonDecode(response.body);
@@ -353,7 +476,6 @@ class ApiService {
     throw Exception(data['error'] ?? mensajeError);
   }
 
-  /// Lanza una excepción legible si la respuesta no fue exitosa.
   void _verificarOk(http.Response response, String mensajeError) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
     final data = _parseBody(response);

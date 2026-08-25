@@ -50,20 +50,23 @@ class AuthService {
   }
 
   /// Solicita recuperación de contraseña.
-  /// ⚠️ Ver nota en ApiService: aún no envía correo real.
+  /// ⚠️ Nota: el backend aún no envía correo real.
   Future<void> sendPasswordResetEmail(String email) async {
     try {
+      // Este método debe estar en ApiService
       await _apiService.solicitarRecuperacion(email.trim());
     } catch (e) {
       throw AuthException(_mensajeAmigable(e.toString()));
     }
   }
 
+  /// Cierra sesión
   Future<void> signOut() async {
     await _apiService.logout();
     _usuarioActual = null;
   }
 
+  /// Verifica si hay una sesión activa
   Future<bool> haySesionActiva() async {
     final token = await _apiService.obtenerToken();
     return token != null;

@@ -1,11 +1,5 @@
 // ============================================================
 // ADMIN · ALIMENTACIÓN SCREEN
-// Gestión de todos los planes nutricionales del sistema.
-// Mismo diseño que el resto de la app (AppBar azul, cards
-// blancas con sombra suave, bottom sheets para formularios),
-// pero consumiendo el backend real (igual que el panel admin
-// de la web), ya que aquí se administran datos de todos los
-// usuarios y no solo los propios.
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -19,22 +13,11 @@ class AdminAlimentacionScreen extends StatefulWidget {
 }
 
 class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
-  // ============================================================
-  // COLORES (igual que el resto de la app)
-  // ============================================================
   static const Color kAzul = Color(0xFF2563EB);
-  static const Color kVerde = Color(0xFF16A34A);
-  static const Color kVerdeBg = Color(0xFFDCFCE7);
-  static const Color kAmarillo = Color(0xFFCA8A04);
-  static const Color kAmarilloBg = Color(0xFFFEF9C3);
-  static const Color kGrisBg = Color(0xFFF3F4F6);
   static const Color kRojo = Color(0xFFDC2626);
 
   final ApiService _api = ApiService();
 
-  // ============================================================
-  // ESTADO
-  // ============================================================
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _planes = [];
@@ -45,20 +28,19 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
   String _filtroEstado = 'Todos';
   final List<String> _estados = ['Todos', 'Activo', 'Pendiente'];
 
-  // Formulario (crear / editar)
   dynamic _mascotaSeleccionadaId;
   dynamic _servicioSeleccionadoId;
   String _estadoSeleccionado = 'Pendiente';
-  final _tipoDietaCtrl = TextEditingController();
-  final _caloriasCtrl = TextEditingController();
-  final _frecuenciaCtrl = TextEditingController();
-  final _horarioCtrl = TextEditingController();
-  final _comidasCtrl = TextEditingController();
-  final _suplementosCtrl = TextEditingController();
-  final _alergiasCtrl = TextEditingController();
-  final _diagnosticoCtrl = TextEditingController();
-  final _observacionesCtrl = TextEditingController();
-  dynamic _planEnEdicionId; // null = creando, no-null = editando
+  final TextEditingController _tipoDietaCtrl = TextEditingController();
+  final TextEditingController _caloriasCtrl = TextEditingController();
+  final TextEditingController _frecuenciaCtrl = TextEditingController();
+  final TextEditingController _horarioCtrl = TextEditingController();
+  final TextEditingController _comidasCtrl = TextEditingController();
+  final TextEditingController _suplementosCtrl = TextEditingController();
+  final TextEditingController _alergiasCtrl = TextEditingController();
+  final TextEditingController _diagnosticoCtrl = TextEditingController();
+  final TextEditingController _observacionesCtrl = TextEditingController();
+  dynamic _planEnEdicionId;
 
   @override
   void initState() {
@@ -80,9 +62,6 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
     super.dispose();
   }
 
-  // ============================================================
-  // CARGA DE DATOS
-  // ============================================================
   Future<void> _cargarDatos() async {
     setState(() {
       _isLoading = true;
@@ -98,17 +77,17 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
       _mascotas = resultados[1];
       _servicios = resultados[2];
     } catch (e) {
-      _error = 'No se pudo conectar con el servidor.';
+      _error = e.toString().replaceFirst('Exception: ', '');
     }
     if (!mounted) return;
     setState(() => _isLoading = false);
   }
 
   List<Map<String, dynamic>> get _planesFiltrados {
+    final texto = _busqueda.toLowerCase();
     return _planes.where((p) {
       final nombre = (p['Nombre_mascota'] ?? '').toString().toLowerCase();
       final dieta = (p['Tipo_dieta'] ?? '').toString().toLowerCase();
-      final texto = _busqueda.toLowerCase();
       final coincideBusqueda = nombre.contains(texto) || dieta.contains(texto);
       final estado = (p['Revision_nutricional'] ?? 'Pendiente').toString();
       final coincideEstado = _filtroEstado == 'Todos' || estado == _filtroEstado;
@@ -116,9 +95,6 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
     }).toList();
   }
 
-  // ============================================================
-  // ACCIONES
-  // ============================================================
   void _limpiarFormulario() {
     _mascotaSeleccionadaId = null;
     _servicioSeleccionadoId = null;
@@ -187,7 +163,6 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
       'Observaciones': _observacionesCtrl.text.trim(),
       'Revision_nutricional': _estadoSeleccionado,
     };
-
     try {
       if (_planEnEdicionId == null) {
         await _api.crearPlanAlimentacion(datos);
@@ -198,7 +173,12 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
       Navigator.pop(context);
       await _cargarDatos();
       if (!mounted) return;
-      _mostrarSnack(_planEnEdicionId == null ? 'Plan creado correctamente' : 'Plan actualizado');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_planEnEdicionId == null ? '✅ Plan creado' : '✅ Plan actualizado'),
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
     } catch (e) {
       _mostrarAlerta('Error', e.toString().replaceFirst('Exception: ', ''));
     }
@@ -209,12 +189,12 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('¿Eliminar plan?'),
-        content: Text(
-          '¿Deseas eliminar el plan de ${plan['Nombre_mascota'] ?? 'esta mascota'}? '
-              'Esta acción no se puede deshacer.',
-        ),
+        content: Text('¿Deseas eliminar el plan de ${plan['Nombre_mascota'] ?? 'esta mascota'}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Eliminar', style: TextStyle(color: kRojo)),
@@ -223,12 +203,13 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
       ),
     );
     if (confirmar != true) return;
-
     try {
       await _api.eliminarPlanAlimentacion(plan['ID_planAlimentacion']);
       await _cargarDatos();
       if (!mounted) return;
-      _mostrarSnack('Plan eliminado');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('🗑️ Plan eliminado'), backgroundColor: Colors.red),
+      );
     } catch (e) {
       _mostrarAlerta('Error', e.toString().replaceFirst('Exception: ', ''));
     }
@@ -242,19 +223,15 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
         title: Text(titulo),
         content: Text(mensaje),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
         ],
       ),
     );
   }
 
-  void _mostrarSnack(String mensaje) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
-  }
-
-  // ============================================================
-  // UI
-  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -262,11 +239,12 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
       appBar: AppBar(
         backgroundColor: kAzul,
         elevation: 0,
-        title: const Text(
-          'Alimentación · Admin',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Alimentación · Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirNuevo,
@@ -295,7 +273,7 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: kAzul.withValues(alpha: 0.1),
+                      color: kAzul.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -397,7 +375,7 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
       alignment: Alignment.center,
       child: Column(
         children: [
-          Icon(icono, size: 40, color: color.withValues(alpha: 0.6)),
+          Icon(icono, size: 40, color: color.withOpacity(0.6)),
           const SizedBox(height: 10),
           Text(texto, style: TextStyle(color: Colors.grey[600], fontSize: 13.5)),
         ],
@@ -408,8 +386,8 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
   Widget _buildPlanCard(Map<String, dynamic> plan) {
     final estado = (plan['Revision_nutricional'] ?? 'Pendiente').toString();
     final esActivo = estado == 'Activo';
-    final colorEstado = esActivo ? kVerde : kAmarillo;
-    final bgEstado = esActivo ? kVerdeBg : kAmarilloBg;
+    final colorEstado = esActivo ? const Color(0xFF16A34A) : const Color(0xFFCA8A04);
+    final bgEstado = esActivo ? const Color(0xFFDCFCE7) : const Color(0xFFFEF9C3);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -418,7 +396,11 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -486,7 +468,9 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
                     foregroundColor: kAzul,
                     side: const BorderSide(color: kAzul),
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -500,7 +484,9 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
                     foregroundColor: kRojo,
                     side: const BorderSide(color: kRojo),
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -511,14 +497,16 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
     );
   }
 
-  // ------------------------------------------------------------
-  // FORMULARIO (bottom sheet) crear / editar
-  // ------------------------------------------------------------
+  // ============================================================
+  // FORMULARIO
+  // ============================================================
   Widget _buildFormulario(void Function(void Function()) setSheetState) {
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -527,13 +515,17 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Center(
                 child: Container(
                   width: 40,
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(4)),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
               ),
               Row(
@@ -557,10 +549,12 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
                 label: 'Mascota',
                 value: _mascotaSeleccionadaId,
                 items: _mascotas
-                    .map((m) => DropdownMenuItem(
-                  value: m['ID_mascota'],
-                  child: Text((m['Nombre'] ?? 'Sin nombre').toString()),
-                ))
+                    .map(
+                      (m) => DropdownMenuItem(
+                    value: m['ID_mascota'],
+                    child: Text((m['Nombre'] ?? 'Sin nombre').toString()),
+                  ),
+                )
                     .toList(),
                 onChanged: (v) => setSheetState(() => _mascotaSeleccionadaId = v),
               ),
@@ -568,19 +562,25 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
                 label: 'Servicio',
                 value: _servicioSeleccionadoId,
                 items: _servicios
-                    .map((s) => DropdownMenuItem(
-                  value: s['ID_servicio'],
-                  child: Text((s['Nombre'] ?? 'Sin nombre').toString()),
-                ))
+                    .map(
+                      (s) => DropdownMenuItem(
+                    value: s['ID_servicio'],
+                    child: Text((s['Nombre'] ?? 'Sin nombre').toString()),
+                  ),
+                )
                     .toList(),
                 onChanged: (v) => setSheetState(() => _servicioSeleccionadoId = v),
               ),
               _campoTexto('Tipo de dieta', _tipoDietaCtrl, hint: 'Ej. Balanceada completa'),
               Row(
                 children: [
-                  Expanded(child: _campoTexto('Calorías/día', _caloriasCtrl, hint: 'Ej. 1200')),
+                  Expanded(
+                    child: _campoTexto('Calorías/día', _caloriasCtrl, hint: 'Ej. 1200'),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _campoTexto('Frecuencia', _frecuenciaCtrl, hint: '2 veces al día')),
+                  Expanded(
+                    child: _campoTexto('Frecuencia', _frecuenciaCtrl, hint: '2 veces al día'),
+                  ),
                 ],
               ),
               _campoTexto('Horario', _horarioCtrl, hint: 'Ej. 7:00 AM · 6:00 PM'),
@@ -606,11 +606,17 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kAzul,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: Text(
                     _planEnEdicionId == null ? 'Crear Plan' : 'Guardar Cambios',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ),
@@ -638,7 +644,7 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: kGrisBg,
+              color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.grey[300]!),
             ),
@@ -657,7 +663,12 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
     );
   }
 
-  Widget _campoTexto(String label, TextEditingController controller, {String? hint, int maxLines = 1}) {
+  Widget _campoTexto(
+      String label,
+      TextEditingController controller, {
+        String? hint,
+        int maxLines = 1,
+      }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
