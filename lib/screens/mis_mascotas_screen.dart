@@ -1,13 +1,15 @@
 // ============================================================
 // MIS MASCOTAS SCREEN - Gestión de mascotas
+// Conectada al backend real (Node/Express + MySQL) a través de
+// ApiService, igual que se hizo con el módulo de usuarios.
 // ============================================================
 
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import '../services/api_service.dart';
 
 class MisMascotasScreen extends StatefulWidget {
   const MisMascotasScreen({super.key});
@@ -18,9 +20,12 @@ class MisMascotasScreen extends StatefulWidget {
 
 class _MisMascotasScreenState extends State<MisMascotasScreen> {
   // ============================================================
-  // VARIABLES DE ESTADO
+  // API Y VARIABLES DE ESTADO
   // ============================================================
+  final ApiService _api = ApiService();
+
   bool _isLoading = true;
+  String? _error;
   List<Map<String, dynamic>> _mascotas = [];
   bool _mostrarFormulario = false;
 
@@ -28,14 +33,17 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _especieController = TextEditingController();
   final TextEditingController _razaController = TextEditingController();
-  final TextEditingController _edadController = TextEditingController();
   final TextEditingController _pesoController = TextEditingController();
+  String _sexoSeleccionado = 'Macho';
 
   // Controladores para edición
   Map<String, dynamic>? _mascotaEditando;
   bool _editando = false;
+  bool _guardando = false;
 
-  // Foto de la mascota (cámara o galería)
+  // Foto de la mascota (cámara o galería). El backend todavía no soporta
+  // subir archivos, así que la foto se guarda de forma local en el
+  // dispositivo y se asocia al ID_mascota real que devuelve la API.
   final ImagePicker _imagePicker = ImagePicker();
   File? _fotoSeleccionada; // Foto nueva elegida en esta sesión del formulario
   String? _fotoPathExistente; // Ruta ya guardada, cuando se está editando
@@ -54,7 +62,6 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
     _nombreController.dispose();
     _especieController.dispose();
     _razaController.dispose();
-    _edadController.dispose();
     _pesoController.dispose();
     super.dispose();
   }
@@ -150,7 +157,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
 
   // Copia la foto elegida a una carpeta permanente de la app, para que
   // siga existiendo aunque el archivo temporal de la cámara/galería se borre
-  Future<String?> _guardarFotoPermanente(File foto, int idMascota) async {
+  Future<String?> _guardarFotoPermanente(File foto, dynamic idMascota) async {
     try {
       final directorioApp = await getApplicationDocumentsDirectory();
       final carpetaFotos = Directory('${directorioApp.path}/mascotas_fotos');
@@ -167,26 +174,51 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
     }
   }
 
+  // Como el backend aún no guarda fotos, la ruta local se cachea en
+  // SharedPreferences usando el ID_mascota real de la base de datos.
+  Future<void> _guardarFotoLocal(dynamic idMascota, String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('foto_mascota_$idMascota', path);
+  }
+
+  Future<void> _eliminarFotoLocal(dynamic idMascota) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('foto_mascota_$idMascota');
+  }
+
   // ============================================================
-  // CARGA DE DATOS
+  // CARGA DE DATOS (desde la API / base de datos real)
   // ============================================================
   Future<void> _cargarMascotas() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
     try {
+      final mascotas = await _api.obtenerMisMascotas();
       final prefs = await SharedPreferences.getInstance();
-      final mascotasStr = prefs.getString('petcard_mascotas') ?? '[]';
-      final List<dynamic> mascotas = jsonDecode(mascotasStr);
-      _mascotas = mascotas.map((m) => Map<String, dynamic>.from(m)).toList();
+
+      for (final mascota in mascotas) {
+        final id = mascota['ID_mascota'];
+        final fotoLocal = prefs.getString('foto_mascota_$id');
+        if (fotoLocal != null) {
+          mascota['foto'] = fotoLocal;
+        }
+      }
+
+      _mascotas = mascotas;
     } catch (e) {
-      print('Error cargando mascotas: $e');
+      _error = e.toString().replaceFirst('Exception: ', '');
+      debugPrint('Error cargando mascotas: $_error');
     }
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
   }
 
   // ============================================================
-  // GUARDAR MASCOTA
+  // GUARDAR MASCOTA (crear en la base de datos vía API)
   // ============================================================
   Future<void> _guardarMascota() async {
     // Validaciones
@@ -196,47 +228,54 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       return;
     }
 
+    setState(() => _guardando = true);
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      final int nuevoId = DateTime.now().millisecondsSinceEpoch;
-
-      // Si el usuario tomó/eligió una foto, la copiamos a una ubicación
-      // permanente antes de guardarla, para que no se pierda.
-      String? fotoPath;
-      if (_fotoSeleccionada != null) {
-        fotoPath = await _guardarFotoPermanente(_fotoSeleccionada!, nuevoId);
-      }
-
-      final Map<String, dynamic> nuevaMascota = {
-        'id': nuevoId,
-        'nombre': _nombreController.text.trim(),
-        'especie': _especieController.text.trim(),
-        'raza': _razaController.text.trim(),
-        'edad': _edadController.text.trim(),
-        'peso': _pesoController.text.trim(),
-        'foto': fotoPath,
-        'fechaRegistro': DateTime.now().toIso8601String(),
+      final datos = {
+        'Nombre': _nombreController.text.trim(),
+        'Especie': _especieController.text.trim(),
+        'Raza': _razaController.text.trim(),
+        'Sexo': _sexoSeleccionado,
+        'Peso': double.tryParse(_pesoController.text.trim().replaceAll(',', '.')),
+        'Fecha_nacimiento': null,
       };
 
-      _mascotas.add(nuevaMascota);
-      await _guardarEnPrefs(prefs);
+      // Se registra en la base de datos y se asocia automáticamente
+      // al cliente correspondiente al usuario que inició sesión.
+      final creada = await _api.crearMiMascota(datos);
+
+      final idMascota = creada['ID_mascota'];
+      if (_fotoSeleccionada != null && idMascota != null) {
+        final fotoPath = await _guardarFotoPermanente(_fotoSeleccionada!, idMascota);
+        if (fotoPath != null) {
+          await _guardarFotoLocal(idMascota, fotoPath);
+        }
+      }
 
       _limpiarFormulario();
+      if (!mounted) return;
       setState(() {
         _mostrarFormulario = false;
         _editando = false;
+        _guardando = false;
       });
 
+      await _cargarMascotas();
+      if (!mounted) return;
       _mostrarAlerta('Éxito', '✅ Mascota registrada correctamente');
     } catch (e) {
-      _mostrarAlerta('Error', '❌ Error al guardar la mascota');
-      print('Error guardando mascota: $e');
+      if (!mounted) return;
+      setState(() => _guardando = false);
+      _mostrarAlerta(
+        'Error',
+        '❌ ${e.toString().replaceFirst('Exception: ', '')}',
+      );
+      debugPrint('Error guardando mascota: $e');
     }
   }
 
   // ============================================================
-  // ACTUALIZAR MASCOTA
+  // ACTUALIZAR MASCOTA (edita el registro en la base de datos)
   // ============================================================
   Future<void> _actualizarMascota() async {
     if (_nombreController.text.trim().isEmpty ||
@@ -245,57 +284,64 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       return;
     }
 
+    final idMascota = _mascotaEditando?['ID_mascota'];
+    if (idMascota == null) {
+      _mostrarAlerta('Error', '❌ No se encontró la mascota a actualizar');
+      return;
+    }
+
+    setState(() => _guardando = true);
+
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final datos = {
+        'Nombre': _nombreController.text.trim(),
+        'Especie': _especieController.text.trim(),
+        'Raza': _razaController.text.trim(),
+        'Sexo': _sexoSeleccionado,
+        'Peso': double.tryParse(_pesoController.text.trim().replaceAll(',', '.')),
+        'Fecha_nacimiento': _mascotaEditando?['Fecha_nacimiento'],
+      };
 
-      final index = _mascotas.indexWhere(
-            (m) => m['id'] == _mascotaEditando!['id'],
-      );
+      await _api.actualizarMascota(idMascota, datos);
 
-      if (index != -1) {
-        // Si el usuario eligió una foto nueva, la copiamos a una ubicación
-        // permanente; si no tocó la foto, conservamos la que ya tenía.
-        String? fotoPath = _mascotas[index]['foto'];
-        if (_fotoSeleccionada != null) {
-          fotoPath = await _guardarFotoPermanente(
-            _fotoSeleccionada!,
-            _mascotaEditando!['id'],
-          );
-        } else if (_fotoPathExistente == null) {
-          // El usuario pulsó "Quitar foto"
-          fotoPath = null;
+      // Si el usuario eligió una foto nueva, la copiamos a una ubicación
+      // permanente; si pulsó "Quitar foto", borramos la referencia local.
+      if (_fotoSeleccionada != null) {
+        final fotoPath = await _guardarFotoPermanente(_fotoSeleccionada!, idMascota);
+        if (fotoPath != null) {
+          await _guardarFotoLocal(idMascota, fotoPath);
         }
-
-        _mascotas[index] = {
-          ..._mascotas[index],
-          'nombre': _nombreController.text.trim(),
-          'especie': _especieController.text.trim(),
-          'raza': _razaController.text.trim(),
-          'edad': _edadController.text.trim(),
-          'peso': _pesoController.text.trim(),
-          'foto': fotoPath,
-        };
-
-        await _guardarEnPrefs(prefs);
-        _limpiarFormulario();
-        setState(() {
-          _mostrarFormulario = false;
-          _editando = false;
-          _mascotaEditando = null;
-        });
-
-        _mostrarAlerta('Éxito', '✅ Mascota actualizada correctamente');
+      } else if (_fotoPathExistente == null) {
+        await _eliminarFotoLocal(idMascota);
       }
+
+      _limpiarFormulario();
+      if (!mounted) return;
+      setState(() {
+        _mostrarFormulario = false;
+        _editando = false;
+        _mascotaEditando = null;
+        _guardando = false;
+      });
+
+      await _cargarMascotas();
+      if (!mounted) return;
+      _mostrarAlerta('Éxito', '✅ Mascota actualizada correctamente');
     } catch (e) {
-      _mostrarAlerta('Error', '❌ Error al actualizar la mascota');
-      print('Error actualizando mascota: $e');
+      if (!mounted) return;
+      setState(() => _guardando = false);
+      _mostrarAlerta(
+        'Error',
+        '❌ ${e.toString().replaceFirst('Exception: ', '')}',
+      );
+      debugPrint('Error actualizando mascota: $e');
     }
   }
 
   // ============================================================
-  // ELIMINAR MASCOTA
+  // ELIMINAR MASCOTA (se desactiva en la base de datos)
   // ============================================================
-  Future<void> _eliminarMascota(int id) async {
+  Future<void> _eliminarMascota(dynamic id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -316,14 +362,17 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
 
     if (confirm == true) {
       try {
-        final prefs = await SharedPreferences.getInstance();
-        _mascotas.removeWhere((m) => m['id'] == id);
-        await _guardarEnPrefs(prefs);
-        setState(() {});
+        await _api.eliminarMascota(id);
+        await _eliminarFotoLocal(id);
+        await _cargarMascotas();
+        if (!mounted) return;
         _mostrarAlerta('Éxito', '✅ Mascota eliminada correctamente');
       } catch (e) {
-        _mostrarAlerta('Error', '❌ Error al eliminar la mascota');
-        print('Error eliminando mascota: $e');
+        _mostrarAlerta(
+          'Error',
+          '❌ ${e.toString().replaceFirst('Exception: ', '')}',
+        );
+        debugPrint('Error eliminando mascota: $e');
       }
     }
   }
@@ -336,11 +385,11 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       _mascotaEditando = mascota;
       _editando = true;
       _mostrarFormulario = true;
-      _nombreController.text = mascota['nombre'] ?? '';
-      _especieController.text = mascota['especie'] ?? '';
-      _razaController.text = mascota['raza'] ?? '';
-      _edadController.text = mascota['edad'] ?? '';
-      _pesoController.text = mascota['peso'] ?? '';
+      _nombreController.text = (mascota['Nombre'] ?? '').toString();
+      _especieController.text = (mascota['Especie'] ?? '').toString();
+      _razaController.text = (mascota['Raza'] ?? '').toString();
+      _sexoSeleccionado = (mascota['Sexo'] ?? 'Macho').toString();
+      _pesoController.text = mascota['Peso'] != null ? mascota['Peso'].toString() : '';
       _fotoSeleccionada = null;
       _fotoPathExistente = mascota['foto'];
     });
@@ -350,20 +399,12 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
     _nombreController.clear();
     _especieController.clear();
     _razaController.clear();
-    _edadController.clear();
     _pesoController.clear();
+    _sexoSeleccionado = 'Macho';
     _mascotaEditando = null;
     _editando = false;
     _fotoSeleccionada = null;
     _fotoPathExistente = null;
-  }
-
-  // ============================================================
-  // GUARDAR EN PREFERENCES
-  // ============================================================
-  Future<void> _guardarEnPrefs(SharedPreferences prefs) async {
-    final String mascotasJson = jsonEncode(_mascotas);
-    await prefs.setString('petcard_mascotas', mascotasJson);
   }
 
   // ============================================================
@@ -411,6 +452,10 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _isLoading ? null : _cargarMascotas,
+          ),
+          IconButton(
             icon: const Icon(Icons.add, color: Colors.white),
             onPressed: () {
               setState(() {
@@ -424,92 +469,149 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ==========================================================
-            // TÍTULO Y CONTADOR
-            // ==========================================================
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Mis Mascotas',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A2E),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7C3AED).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${_mascotas.length} mascotas',
-                    style: const TextStyle(
-                      color: Color(0xFF7C3AED),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Gestiona la información de tus mascotas',
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 20),
-
-            // ==========================================================
-            // FORMULARIO DE NUEVA MASCOTA
-            // ==========================================================
-            if (_mostrarFormulario) _buildFormularioMascota(),
-
-            // ==========================================================
-            // LISTA DE MASCOTAS
-            // ==========================================================
-            if (_mascotas.isEmpty && !_mostrarFormulario)
-              _buildEmptyState()
-            else if (!_mostrarFormulario)
-              ..._mascotas.map((mascota) => _buildMascotaCard(mascota)),
-
-            const SizedBox(height: 20),
-
-            // ==========================================================
-            // BOTÓN AGREGAR MASCOTA (cuando no hay formulario)
-            // ==========================================================
-            if (!_mostrarFormulario)
-              Center(
-                child: TextButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _mostrarFormulario = true;
-                      _editando = false;
-                      _limpiarFormulario();
-                    });
-                  },
-                  icon: const Icon(Icons.add, color: Color(0xFF7C3AED)),
-                  label: const Text(
-                    'Agregar nueva mascota',
+          : RefreshIndicator(
+        onRefresh: _cargarMascotas,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ==========================================================
+              // TÍTULO Y CONTADOR
+              // ==========================================================
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Mis Mascotas',
                     style: TextStyle(
-                      color: Color(0xFF7C3AED),
-                      fontWeight: FontWeight.w600,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
                     ),
                   ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${_mascotas.length} mascotas',
+                      style: const TextStyle(
+                        color: Color(0xFF7C3AED),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Gestiona la información de tus mascotas',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 20),
+
+              // ==========================================================
+              // ERROR AL CARGAR DESDE LA API
+              // ==========================================================
+              if (_error != null && !_mostrarFormulario) _buildErrorState(),
+
+              // ==========================================================
+              // FORMULARIO DE NUEVA MASCOTA
+              // ==========================================================
+              if (_mostrarFormulario) _buildFormularioMascota(),
+
+              // ==========================================================
+              // LISTA DE MASCOTAS
+              // ==========================================================
+              if (_error == null) ...[
+                if (_mascotas.isEmpty && !_mostrarFormulario)
+                  _buildEmptyState()
+                else if (!_mostrarFormulario)
+                  ..._mascotas.map((mascota) => _buildMascotaCard(mascota)),
+              ],
+
+              const SizedBox(height: 20),
+
+              // ==========================================================
+              // BOTÓN AGREGAR MASCOTA (cuando no hay formulario)
+              // ==========================================================
+              if (!_mostrarFormulario)
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _mostrarFormulario = true;
+                        _editando = false;
+                        _limpiarFormulario();
+                      });
+                    },
+                    icon: const Icon(Icons.add, color: Color(0xFF7C3AED)),
+                    label: const Text(
+                      'Agregar nueva mascota',
+                      style: TextStyle(
+                        color: Color(0xFF7C3AED),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // WIDGET - ESTADO DE ERROR (falla la conexión con la API)
+  // ============================================================
+  Widget _buildErrorState() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red[100]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red[400], size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'No se pudieron cargar tus mascotas',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _error ?? '',
+            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+          ),
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: _cargarMascotas,
+            icon: const Icon(Icons.refresh, size: 16, color: Color(0xFF7C3AED)),
+            label: const Text(
+              'Reintentar',
+              style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -602,23 +704,17 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Edad y Peso en Row
+          // Sexo y Peso en Row
           Row(
             children: [
-              Expanded(
-                child: _buildCampoFormulario(
-                  label: 'Edad',
-                  hint: 'Ej. 2 años',
-                  controller: _edadController,
-                ),
-              ),
+              Expanded(child: _buildSelectorSexo()),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildCampoFormulario(
                   label: 'Peso (kg)',
                   hint: 'Ej. 15',
                   controller: _pesoController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
               ),
             ],
@@ -629,7 +725,9 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _editando ? _actualizarMascota : _guardarMascota,
+              onPressed: _guardando
+                  ? null
+                  : (_editando ? _actualizarMascota : _guardarMascota),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF7C3AED),
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -637,7 +735,16 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: Text(
+              child: _guardando
+                  ? const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+                  : Text(
                 _editando ? 'Actualizar Mascota' : 'Guardar mascota',
                 style: const TextStyle(
                   color: Colors.white,
@@ -649,6 +756,47 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ============================================================
+  // WIDGET - SELECTOR DE SEXO
+  // ============================================================
+  Widget _buildSelectorSexo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sexo',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _sexoSeleccionado,
+              isExpanded: true,
+              items: const [
+                DropdownMenuItem(value: 'Macho', child: Text('Macho')),
+                DropdownMenuItem(value: 'Hembra', child: Text('Hembra')),
+              ],
+              onChanged: (valor) {
+                setState(() => _sexoSeleccionado = valor ?? 'Macho');
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -815,14 +963,14 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                 height: 56,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => Icon(
-                  _getIconForEspecie(mascota['especie'] ?? ''),
+                  _getIconForEspecie(mascota['Especie'] ?? ''),
                   color: const Color(0xFF7C3AED),
                   size: 28,
                 ),
               ),
             )
                 : Icon(
-              _getIconForEspecie(mascota['especie'] ?? ''),
+              _getIconForEspecie(mascota['Especie'] ?? ''),
               color: const Color(0xFF7C3AED),
               size: 28,
             ),
@@ -835,7 +983,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  mascota['nombre'] ?? 'Sin nombre',
+                  mascota['Nombre'] ?? 'Sin nombre',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -844,7 +992,8 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${mascota['especie'] ?? ''} • ${mascota['raza'] ?? ''} • ${mascota['edad'] ?? ''} • ${mascota['peso'] ?? ''} kg',
+                  '${mascota['Especie'] ?? ''} • ${mascota['Raza'] ?? ''} • ${mascota['Sexo'] ?? ''}'
+                      '${mascota['Peso'] != null ? ' • ${mascota['Peso']} kg' : ''}',
                   style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                 ),
               ],
@@ -867,7 +1016,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                   size: 18,
                   color: Colors.red[300],
                 ),
-                onPressed: () => _eliminarMascota(mascota['id']),
+                onPressed: () => _eliminarMascota(mascota['ID_mascota']),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),

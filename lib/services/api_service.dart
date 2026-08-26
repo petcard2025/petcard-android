@@ -23,6 +23,38 @@ class ApiService {
   final http.Client _client = _clienteHttp();
 
   // ============================================================
+  // USUARIO ACTUAL (decodificado del propio JWT)
+  // ============================================================
+  // AuthService no es un singleton, así que en pantallas distintas a
+  // login se pierde el usuario en memoria. En cambio, el token JWT ya
+  // trae ID_usuario, Nombre, Correo y Rol firmados por el backend, así
+  // que los leemos directamente de ahí sin otra llamada al servidor.
+  Future<Map<String, dynamic>?> obtenerMiUsuario() async {
+    final token = await obtenerToken();
+    if (token == null) return null;
+    final partes = token.split('.');
+    if (partes.length != 3) return null;
+    try {
+      String payload = partes[1];
+      payload = payload.replaceAll('-', '+').replaceAll('_', '/');
+      switch (payload.length % 4) {
+        case 2:
+          payload += '==';
+          break;
+        case 3:
+          payload += '=';
+          break;
+      }
+      final decoded = utf8.decode(base64.decode(payload));
+      final map = jsonDecode(decoded);
+      if (map is Map<String, dynamic>) return map;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
   // TOKEN
   // ============================================================
   Future<void> _guardarToken(String token) async {
@@ -170,6 +202,18 @@ class ApiService {
     return _parseLista(response, 'No se pudieron obtener los clientes.');
   }
 
+  /// Devuelve el registro de "cliente" (ID_cliente, Direccion, ID_usuario)
+  /// asociado a un usuario, o null si el usuario no tiene cliente.
+  Future<Map<String, dynamic>?> obtenerClientePorUsuario(dynamic idUsuario) async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/clientes/usuario/$idUsuario'),
+      headers: headers,
+    );
+    final lista = _parseLista(response, 'No se pudo obtener el cliente.');
+    return lista.isEmpty ? null : lista.first;
+  }
+
   // ============================================================
   // MASCOTAS
   // ============================================================
@@ -180,6 +224,17 @@ class ApiService {
       headers: headers,
     );
     return _parseLista(response, 'No se pudieron obtener las mascotas.');
+  }
+
+  /// Mascotas de un cliente en particular (para dropdowns del cliente,
+  /// no el listado completo de administrador).
+  Future<List<Map<String, dynamic>>> obtenerMascotasPorCliente(dynamic idCliente) async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/mascotas/cliente/$idCliente'),
+      headers: headers,
+    );
+    return _parseLista(response, 'No se pudieron obtener tus mascotas.');
   }
 
   Future<Map<String, dynamic>> crearMascota(Map<String, dynamic> datos) async {
@@ -211,6 +266,51 @@ class ApiService {
     _verificarOk(response, 'No se pudo eliminar la mascota.');
   }
 
+  // ============================================================
+  // MASCOTAS (SESIÓN ACTUAL) - "Mis mascotas" del cliente logueado
+  // ============================================================
+
+  /// ID_cliente del usuario que inició sesión. Si aún no tiene un
+  /// registro de cliente (p. ej. se registró pero nunca agregó una
+  /// mascota), lo crea automáticamente.
+  Future<dynamic> obtenerIdClienteActual() async {
+    final usuario = await obtenerMiUsuario();
+    final idUsuario = usuario?['ID_usuario'];
+    if (idUsuario == null) {
+      throw Exception('No se pudo identificar al usuario de la sesión.');
+    }
+
+    final cliente = await obtenerClientePorUsuario(idUsuario);
+    if (cliente != null) {
+      return cliente['ID_cliente'];
+    }
+
+    // No existe todavía: se crea el registro de cliente para este usuario.
+    final headers = await _headersConToken();
+    final response = await _client.post(
+      Uri.parse('$baseUrl/clientes'),
+      headers: headers,
+      body: jsonEncode({'Direccion': '', 'ID_usuario': idUsuario}),
+    );
+    final datosCliente = _parseBodyOk(
+      response,
+      'No se pudo registrar el perfil de cliente.',
+    );
+    return datosCliente['ID_cliente'];
+  }
+
+  /// Mascotas del usuario logueado.
+  Future<List<Map<String, dynamic>>> obtenerMisMascotas() async {
+    final idCliente = await obtenerIdClienteActual();
+    return obtenerMascotasPorCliente(idCliente);
+  }
+
+  /// Crea una mascota y la asocia automáticamente al cliente logueado.
+  Future<Map<String, dynamic>> crearMiMascota(Map<String, dynamic> datos) async {
+    final idCliente = await obtenerIdClienteActual();
+    final payload = {...datos, 'ID_cliente': idCliente};
+    return crearMascota(payload);
+  }
   // ============================================================
   // SERVICIOS
   // ============================================================
@@ -363,6 +463,36 @@ class ApiService {
       body: jsonEncode(datos),
     );
     _verificarOk(response, 'No se pudo actualizar la cita.');
+  }
+
+  /// Tu backend solo permite cambiar el "Estado" de una cita vía PATCH
+  /// (el PUT no acepta ese campo), por eso este método es aparte.
+  Future<void> cambiarEstadoCita(dynamic id, String estado) async {
+    final headers = await _headersConToken();
+    final response = await _client.patch(
+      Uri.parse('$baseUrl/citas/$id'),
+      headers: headers,
+      body: jsonEncode({'Estado': estado}),
+    );
+    _verificarOk(response, 'No se pudo cambiar el estado de la cita.');
+  }
+
+  /// Horas ya ocupadas de un veterinario en una fecha (evita doble cita).
+  Future<List<String>> obtenerHorasOcupadas({
+    required dynamic idVeterinario,
+    required String fecha,
+  }) async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/citas/horas-ocupadas?ID_veterinario=$idVeterinario&Fecha=$fecha'),
+      headers: headers,
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = jsonDecode(response.body);
+      final horas = decoded['horasOcupadas'];
+      if (horas is List) return horas.map((e) => e.toString()).toList();
+    }
+    return [];
   }
 
   Future<void> eliminarCita(dynamic id) async {

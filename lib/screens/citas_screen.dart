@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
 
 class CitasScreen extends StatefulWidget {
   const CitasScreen({super.key});
@@ -25,19 +22,16 @@ class _CitasScreenState extends State<CitasScreen> {
   List<Map<String, dynamic>> _mascotas = [];
   bool _mostrarFormulario = false;
 
-  // Lista de servicios disponibles para el dropdown
-  final List<String> _servicios = [
-    'Consulta general',
-    'Vacunación',
-    'Baño y peluquería',
-    'Desparasitación',
-    'Estética',
-    'Dermatología',
-    'Cirugía',
-    'Otro',
-  ];
+  final ApiService _api = ApiService();
 
-  // Estados posibles de una cita
+  // ID_cliente (backend) del usuario logueado
+  dynamic _idCliente;
+
+  // Catálogos reales, cargados desde tu backend
+  List<Map<String, dynamic>> _servicios = [];
+  List<Map<String, dynamic>> _veterinarios = [];
+
+  // Estados posibles de una cita (solo para mostrar el badge / cancelar)
   final List<String> _estados = [
     'Pendiente',
     'Confirmada',
@@ -48,7 +42,7 @@ class _CitasScreenState extends State<CitasScreen> {
   // Controladores para el formulario
   String? _servicioSeleccionado;
   String? _mascotaSeleccionada;
-  final TextEditingController _veterinarioController = TextEditingController();
+  String? _veterinarioSeleccionado;
   final TextEditingController _notasController = TextEditingController();
   DateTime? _fechaSeleccionada;
   TimeOfDay? _horaSeleccionada;
@@ -72,7 +66,6 @@ class _CitasScreenState extends State<CitasScreen> {
 
   @override
   void dispose() {
-    _veterinarioController.dispose();
     _notasController.dispose();
     super.dispose();
   }
@@ -84,26 +77,45 @@ class _CitasScreenState extends State<CitasScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
+      // 1. Averiguar quién es el usuario logueado (leyendo su JWT)
+      final miUsuario = await _api.obtenerMiUsuario();
+      if (miUsuario == null) {
+        throw Exception('No hay sesión activa. Vuelve a iniciar sesión.');
+      }
+      final idUsuario = miUsuario['ID_usuario'];
 
-      // Cargar citas
-      final citasStr = prefs.getString('petcard_citas') ?? '[]';
-      final List<dynamic> citas = jsonDecode(citasStr);
-      _citas = citas.map((c) => Map<String, dynamic>.from(c)).toList();
+      // 2. Resolver su ID_cliente
+      final cliente = await _api.obtenerClientePorUsuario(idUsuario);
+      if (cliente == null) {
+        throw Exception('Este usuario no tiene un perfil de cliente asociado.');
+      }
+      _idCliente = cliente['ID_cliente'];
 
-      // Ordenar por fecha (las más próximas primero)
+      // 3. Traer TODAS las citas (el backend no filtra por cliente) y
+      //    quedarnos solo con las de este cliente.
+      final todasLasCitas = await _api.obtenerCitasAdmin();
+      _citas = todasLasCitas
+          .where((c) => c['ID_cliente'].toString() == _idCliente.toString())
+          .toList();
+
+      // Ordenar por fecha/hora (las más próximas primero)
       _citas.sort((a, b) {
-        final fechaA = a['fechaHoraOrden'] ?? '';
-        final fechaB = b['fechaHoraOrden'] ?? '';
+        final fechaA = '${a['Fecha'] ?? ''} ${a['Hora'] ?? ''}';
+        final fechaB = '${b['Fecha'] ?? ''} ${b['Hora'] ?? ''}';
         return fechaA.compareTo(fechaB);
       });
 
-      // Cargar mascotas registradas (para el dropdown de selección)
-      final mascotasStr = prefs.getString('petcard_mascotas') ?? '[]';
-      final List<dynamic> mascotas = jsonDecode(mascotasStr);
-      _mascotas = mascotas.map((m) => Map<String, dynamic>.from(m)).toList();
+      // 4. Mascotas de este cliente (para el dropdown de selección)
+      _mascotas = await _api.obtenerMascotasPorCliente(_idCliente);
+
+      // 5. Catálogo real de servicios y veterinarios de la clínica
+      _servicios = await _api.obtenerServicios();
+      _veterinarios = await _api.obtenerVeterinarios();
     } catch (e) {
       debugPrint('Error cargando citas: $e');
+      if (mounted) {
+        _mostrarAlerta('Error', '❌ No se pudieron cargar los datos: $e');
+      }
     }
 
     if (!mounted) return;
@@ -116,56 +128,62 @@ class _CitasScreenState extends State<CitasScreen> {
   Future<void> _guardarCita() async {
     if (_servicioSeleccionado == null ||
         _mascotaSeleccionada == null ||
+        _veterinarioSeleccionado == null ||
         _fechaSeleccionada == null ||
         _horaSeleccionada == null) {
       _mostrarAlerta(
         'Error',
-        '⚠️ Servicio, mascota, fecha y hora son obligatorios',
+        '⚠️ Servicio, mascota, veterinario, fecha y hora son obligatorios',
       );
       return;
     }
 
-    final horaFormateada = _horaSeleccionada!.format(context);
-
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final servicio = _servicios.firstWhere(
+            (s) => s['Nombre'] == _servicioSeleccionado,
+        orElse: () => throw Exception('Servicio no encontrado'),
+      );
+      final mascota = _mascotas.firstWhere(
+            (m) => m['Nombre'] == _mascotaSeleccionada,
+        orElse: () => throw Exception('Mascota no encontrada'),
+      );
+      final veterinario = _veterinarios.firstWhere(
+            (v) => v['Nombre'] == _veterinarioSeleccionado,
+        orElse: () => throw Exception('Veterinario no encontrado'),
+      );
 
-      final fechaHoraOrden = DateTime(
-        _fechaSeleccionada!.year,
-        _fechaSeleccionada!.month,
-        _fechaSeleccionada!.day,
-        _horaSeleccionada!.hour,
-        _horaSeleccionada!.minute,
-      ).toIso8601String();
+      final fechaIso = _formatearFechaIso(_fechaSeleccionada!);
+      final horaIso = _formatearHoraIso(_horaSeleccionada!);
 
-      final Map<String, dynamic> nuevaCita = {
-        'id': DateTime.now().millisecondsSinceEpoch,
-        'servicio': _servicioSeleccionado,
-        'mascota': _mascotaSeleccionada,
-        'veterinario': _veterinarioController.text.trim(),
-        'fecha': _formatearFecha(_fechaSeleccionada!),
-        'hora': horaFormateada,
-        'fechaHoraOrden': fechaHoraOrden,
-        'estado': _estadoSeleccionado,
-        'notas': _notasController.text.trim(),
-        'fechaRegistro': DateTime.now().toIso8601String(),
-      };
-
-      _citas.add(nuevaCita);
-      await _guardarEnPrefs(prefs);
+      final nuevaCita = await _api.crearCita({
+        'ID_cliente': _idCliente,
+        'ID_mascota': mascota['ID_mascota'],
+        'ID_servicio': servicio['ID_servicio'],
+        'ID_veterinario': veterinario['ID_veterinario'],
+        'Fecha': fechaIso,
+        'Hora': horaIso,
+        'Motivo': _servicioSeleccionado,
+        'Observaciones': _notasController.text.trim(),
+      });
 
       _limpiarFormulario();
       if (!mounted) return;
       setState(() {
         _mostrarFormulario = false;
         _editando = false;
-        _citaRecienCreada = nuevaCita;
+        _citaRecienCreada = {
+          ...nuevaCita,
+          'Nombre_servicio': _servicioSeleccionado,
+          'Nombre_mascota': _mascotaSeleccionada,
+          'Nombre_veterinario': _veterinarioSeleccionado,
+          'Estado': 'Pendiente',
+        };
       });
 
       await _cargarDatos();
     } catch (e) {
       if (mounted) {
-        _mostrarAlerta('Error', '❌ Error al guardar la cita');
+        _mostrarAlerta('Error', '❌ Error al guardar la cita: $e');
       }
       debugPrint('Error guardando cita: $e');
     }
@@ -177,61 +195,57 @@ class _CitasScreenState extends State<CitasScreen> {
   Future<void> _actualizarCita() async {
     if (_servicioSeleccionado == null ||
         _mascotaSeleccionada == null ||
+        _veterinarioSeleccionado == null ||
         _fechaSeleccionada == null ||
         _horaSeleccionada == null) {
       _mostrarAlerta(
         'Error',
-        '⚠️ Servicio, mascota, fecha y hora son obligatorios',
+        '⚠️ Servicio, mascota, veterinario, fecha y hora son obligatorios',
       );
       return;
     }
 
-    final horaFormateada = _horaSeleccionada!.format(context);
-
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final idCita = _citaEditando!['ID_cita'];
 
-      final index = _citas.indexWhere(
-            (c) => c['id'] == _citaEditando!['id'],
+      final servicio = _servicios.firstWhere(
+            (s) => s['Nombre'] == _servicioSeleccionado,
+        orElse: () => throw Exception('Servicio no encontrado'),
+      );
+      final veterinario = _veterinarios.firstWhere(
+            (v) => v['Nombre'] == _veterinarioSeleccionado,
+        orElse: () => throw Exception('Veterinario no encontrado'),
       );
 
-      if (index != -1) {
-        final fechaHoraOrden = DateTime(
-          _fechaSeleccionada!.year,
-          _fechaSeleccionada!.month,
-          _fechaSeleccionada!.day,
-          _horaSeleccionada!.hour,
-          _horaSeleccionada!.minute,
-        ).toIso8601String();
+      final fechaIso = _formatearFechaIso(_fechaSeleccionada!);
+      final horaIso = _formatearHoraIso(_horaSeleccionada!);
 
-        _citas[index] = {
-          ..._citas[index],
-          'servicio': _servicioSeleccionado,
-          'mascota': _mascotaSeleccionada,
-          'veterinario': _veterinarioController.text.trim(),
-          'fecha': _formatearFecha(_fechaSeleccionada!),
-          'hora': horaFormateada,
-          'fechaHoraOrden': fechaHoraOrden,
-          'estado': _estadoSeleccionado,
-          'notas': _notasController.text.trim(),
-        };
+      // Nota: tu backend NO permite cambiar ID_mascota al editar una cita
+      // (el PUT solo actualiza servicio, veterinario, fecha, hora, motivo
+      // y observaciones), así que la mascota se mantiene igual.
+      await _api.actualizarCita(idCita, {
+        'ID_servicio': servicio['ID_servicio'],
+        'ID_veterinario': veterinario['ID_veterinario'],
+        'Fecha': fechaIso,
+        'Hora': horaIso,
+        'Motivo': _servicioSeleccionado,
+        'Observaciones': _notasController.text.trim(),
+      });
 
-        await _guardarEnPrefs(prefs);
-        _limpiarFormulario();
-        if (!mounted) return;
-        setState(() {
-          _mostrarFormulario = false;
-          _editando = false;
-          _citaEditando = null;
-        });
+      _limpiarFormulario();
+      if (!mounted) return;
+      setState(() {
+        _mostrarFormulario = false;
+        _editando = false;
+        _citaEditando = null;
+      });
 
-        await _cargarDatos();
-        if (!mounted) return;
-        _mostrarAlerta('Éxito', '✅ Cita actualizada correctamente');
-      }
+      await _cargarDatos();
+      if (!mounted) return;
+      _mostrarAlerta('Éxito', '✅ Cita actualizada correctamente');
     } catch (e) {
       if (mounted) {
-        _mostrarAlerta('Error', '❌ Error al actualizar la cita');
+        _mostrarAlerta('Error', '❌ Error al actualizar la cita: $e');
       }
       debugPrint('Error actualizando cita: $e');
     }
@@ -240,7 +254,7 @@ class _CitasScreenState extends State<CitasScreen> {
   // ============================================================
   // CANCELAR CITA (cambia el estado, no la elimina)
   // ============================================================
-  Future<void> _cancelarCita(int id) async {
+  Future<void> _cancelarCita(dynamic id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -266,18 +280,13 @@ class _CitasScreenState extends State<CitasScreen> {
 
     if (confirm == true) {
       try {
-        final prefs = await SharedPreferences.getInstance();
-        final index = _citas.indexWhere((c) => c['id'] == id);
-        if (index != -1) {
-          _citas[index]['estado'] = 'Cancelada';
-          await _guardarEnPrefs(prefs);
-          if (!mounted) return;
-          setState(() {});
-          _mostrarAlerta('Éxito', '✅ Cita cancelada');
-        }
+        await _api.cambiarEstadoCita(id, 'Cancelada');
+        await _cargarDatos();
+        if (!mounted) return;
+        _mostrarAlerta('Éxito', '✅ Cita cancelada');
       } catch (e) {
         if (mounted) {
-          _mostrarAlerta('Error', '❌ Error al cancelar la cita');
+          _mostrarAlerta('Error', '❌ Error al cancelar la cita: $e');
         }
         debugPrint('Error cancelando cita: $e');
       }
@@ -287,7 +296,7 @@ class _CitasScreenState extends State<CitasScreen> {
   // ============================================================
   // ELIMINAR CITA (borra el registro por completo)
   // ============================================================
-  Future<void> _eliminarCita(int id) async {
+  Future<void> _eliminarCita(dynamic id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -312,15 +321,13 @@ class _CitasScreenState extends State<CitasScreen> {
 
     if (confirm == true) {
       try {
-        final prefs = await SharedPreferences.getInstance();
-        _citas.removeWhere((c) => c['id'] == id);
-        await _guardarEnPrefs(prefs);
+        await _api.eliminarCita(id);
+        await _cargarDatos();
         if (!mounted) return;
-        setState(() {});
         _mostrarAlerta('Éxito', '✅ Cita eliminada correctamente');
       } catch (e) {
         if (mounted) {
-          _mostrarAlerta('Error', '❌ Error al eliminar la cita');
+          _mostrarAlerta('Error', '❌ Error al eliminar la cita: $e');
         }
         debugPrint('Error eliminando cita: $e');
       }
@@ -336,17 +343,26 @@ class _CitasScreenState extends State<CitasScreen> {
       _editando = true;
       _mostrarFormulario = true;
 
-      _servicioSeleccionado = cita['servicio'];
-      _mascotaSeleccionada = cita['mascota'];
-      _veterinarioController.text = cita['veterinario'] ?? '';
-      _notasController.text = cita['notas'] ?? '';
-      _estadoSeleccionado = cita['estado'] ?? 'Pendiente';
+      _servicioSeleccionado = cita['Nombre_servicio'];
+      _mascotaSeleccionada = cita['Nombre_mascota'];
+      _veterinarioSeleccionado = cita['Nombre_veterinario'];
+      _notasController.text = cita['Observaciones'] ?? '';
+      _estadoSeleccionado = cita['Estado'] ?? 'Pendiente';
 
-      if (cita['fechaHoraOrden'] != null) {
-        final dt = DateTime.tryParse(cita['fechaHoraOrden']);
+      final fechaStr = cita['Fecha']?.toString();
+      if (fechaStr != null && fechaStr.length >= 10) {
+        final dt = DateTime.tryParse(fechaStr.substring(0, 10));
         if (dt != null) {
           _fechaSeleccionada = DateTime(dt.year, dt.month, dt.day);
-          _horaSeleccionada = TimeOfDay(hour: dt.hour, minute: dt.minute);
+        }
+      }
+      final horaStr = cita['Hora']?.toString();
+      if (horaStr != null && horaStr.contains(':')) {
+        final partes = horaStr.split(':');
+        final h = int.tryParse(partes[0]);
+        final m = int.tryParse(partes[1]);
+        if (h != null && m != null) {
+          _horaSeleccionada = TimeOfDay(hour: h, minute: m);
         }
       }
     });
@@ -355,7 +371,7 @@ class _CitasScreenState extends State<CitasScreen> {
   void _limpiarFormulario() {
     _servicioSeleccionado = null;
     _mascotaSeleccionada = null;
-    _veterinarioController.clear();
+    _veterinarioSeleccionado = null;
     _notasController.clear();
     _fechaSeleccionada = null;
     _horaSeleccionada = null;
@@ -364,12 +380,16 @@ class _CitasScreenState extends State<CitasScreen> {
     _editando = false;
   }
 
-  // ============================================================
-  // GUARDAR EN PREFERENCES
-  // ============================================================
-  Future<void> _guardarEnPrefs(SharedPreferences prefs) async {
-    final String citasJson = jsonEncode(_citas);
-    await prefs.setString('petcard_citas', citasJson);
+  // Convierte una fecha/hora a los formatos que espera el backend
+  String _formatearFechaIso(DateTime fecha) {
+    return '${fecha.year.toString().padLeft(4, '0')}-'
+        '${fecha.month.toString().padLeft(2, '0')}-'
+        '${fecha.day.toString().padLeft(2, '0')}';
+  }
+
+  String _formatearHoraIso(TimeOfDay hora) {
+    return '${hora.hour.toString().padLeft(2, '0')}:'
+        '${hora.minute.toString().padLeft(2, '0')}:00';
   }
 
   // ============================================================
@@ -421,6 +441,24 @@ class _CitasScreenState extends State<CitasScreen> {
       'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
     ];
     return '${fecha.day} de ${meses[fecha.month - 1]} de ${fecha.year}';
+  }
+
+  // El backend devuelve la fecha como texto "YYYY-MM-DD" (o con hora
+  // pegada); esto la muestra en el mismo formato "d de mes de año".
+  String _formatearFechaDesdeString(dynamic fechaRaw) {
+    if (fechaRaw == null) return '';
+    final str = fechaRaw.toString();
+    if (str.length < 10) return str;
+    final dt = DateTime.tryParse(str.substring(0, 10));
+    if (dt == null) return str;
+    return _formatearFecha(dt);
+  }
+
+  // El backend devuelve la hora como "HH:mm:ss"; esto la recorta a "HH:mm".
+  String _recortarHora(dynamic horaRaw) {
+    if (horaRaw == null) return '';
+    final str = horaRaw.toString();
+    return str.length >= 5 ? str.substring(0, 5) : str;
   }
 
   // ============================================================
@@ -752,11 +790,23 @@ class _CitasScreenState extends State<CitasScreen> {
           const SizedBox(height: 16),
 
           // Servicio
-          _buildDropdown(
+          _servicios.isEmpty
+              ? Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              '⚠️ No hay servicios disponibles todavía.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+            ),
+          )
+              : _buildDropdown(
             label: 'Servicio',
             hint: 'Selecciona un servicio',
             valor: _servicioSeleccionado,
-            opciones: _servicios,
+            opciones: _servicios.map((s) => s['Nombre'].toString()).toList(),
             onChanged: (v) => setState(() => _servicioSeleccionado = v),
           ),
           const SizedBox(height: 12),
@@ -779,17 +829,31 @@ class _CitasScreenState extends State<CitasScreen> {
             hint: 'Selecciona la mascota',
             valor: _mascotaSeleccionada,
             opciones: _mascotas
-                .map((m) => m['nombre'].toString())
+                .map((m) => m['Nombre'].toString())
                 .toList(),
             onChanged: (v) => setState(() => _mascotaSeleccionada = v),
           ),
           const SizedBox(height: 12),
 
-          // Veterinario / responsable
-          _buildCampoFormulario(
-            label: 'Veterinario / Responsable',
-            hint: 'Ej. Dr. Gómez',
-            controller: _veterinarioController,
+          // Veterinario
+          _veterinarios.isEmpty
+              ? Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              '⚠️ No hay veterinarios registrados todavía.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+            ),
+          )
+              : _buildDropdown(
+            label: 'Veterinario',
+            hint: 'Selecciona un veterinario',
+            valor: _veterinarioSeleccionado,
+            opciones: _veterinarios.map((v) => v['Nombre'].toString()).toList(),
+            onChanged: (v) => setState(() => _veterinarioSeleccionado = v),
           ),
           const SizedBox(height: 12),
 
@@ -818,17 +882,6 @@ class _CitasScreenState extends State<CitasScreen> {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-
-          // Estado
-          _buildDropdown(
-            label: 'Estado',
-            hint: 'Estado de la cita',
-            valor: _estadoSeleccionado,
-            opciones: _estados,
-            onChanged: (v) =>
-                setState(() => _estadoSeleccionado = v ?? 'Pendiente'),
           ),
           const SizedBox(height: 12),
 
@@ -1019,7 +1072,7 @@ class _CitasScreenState extends State<CitasScreen> {
   // WIDGET - TARJETA DE CITA
   // ============================================================
   Widget _buildCitaCard(Map<String, dynamic> cita) {
-    final estado = cita['estado'] ?? 'Pendiente';
+    final estado = cita['Estado'] ?? 'Pendiente';
     final colorEstado = _colorEstado(estado);
 
     return Container(
@@ -1064,7 +1117,7 @@ class _CitasScreenState extends State<CitasScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      cita['servicio'] ?? 'Servicio',
+                      cita['Nombre_servicio'] ?? 'Servicio',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -1073,13 +1126,13 @@ class _CitasScreenState extends State<CitasScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${cita['mascota'] ?? ''} · ${cita['hora'] ?? ''}'
-                          '${(cita['veterinario'] ?? '').toString().isNotEmpty ? ' · ${cita['veterinario']}' : ''}',
+                      '${cita['Nombre_mascota'] ?? ''} · ${_recortarHora(cita['Hora'])}'
+                          '${(cita['Nombre_veterinario'] ?? '').toString().isNotEmpty ? ' · ${cita['Nombre_veterinario']}' : ''}',
                       style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      cita['fecha'] ?? '',
+                      _formatearFechaDesdeString(cita['Fecha']),
                       style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                     ),
                   ],
@@ -1106,10 +1159,10 @@ class _CitasScreenState extends State<CitasScreen> {
             ],
           ),
 
-          if ((cita['notas'] ?? '').toString().isNotEmpty) ...[
+          if ((cita['Observaciones'] ?? '').toString().isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              cita['notas'],
+              cita['Observaciones'],
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],
@@ -1126,7 +1179,7 @@ class _CitasScreenState extends State<CitasScreen> {
             children: [
               if (estado != 'Cancelada' && estado != 'Completada')
                 TextButton.icon(
-                  onPressed: () => _cancelarCita(cita['id']),
+                  onPressed: () => _cancelarCita(cita['ID_cita']),
                   icon: const Icon(Icons.close, size: 16, color: Colors.red),
                   label: const Text(
                     'Cancelar',
@@ -1153,7 +1206,7 @@ class _CitasScreenState extends State<CitasScreen> {
                   size: 18,
                   color: Colors.red[300],
                 ),
-                onPressed: () => _eliminarCita(cita['id']),
+                onPressed: () => _eliminarCita(cita['ID_cita']),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
