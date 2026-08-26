@@ -1,9 +1,5 @@
 // ============================================================
 // ADMIN · SERVICIOS SCREEN
-// Gestión de todos los servicios veterinarios del sistema.
-// Mismo diseño que el resto de la app (AppBar azul, cards
-// blancas con sombra suave, bottom sheets para formularios),
-// consumiendo el backend real como el panel admin de la web.
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -17,12 +13,7 @@ class AdminServiciosScreen extends StatefulWidget {
 }
 
 class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
-  // ============================================================
-  // COLORES (igual que el resto de la app)
-  // ============================================================
   static const Color kAzul = Color(0xFF2563EB);
-  static const Color kVerde = Color(0xFF16A34A);
-  static const Color kVerdeBg = Color(0xFFDCFCE7);
   static const Color kRojo = Color(0xFFDC2626);
 
   final ApiService _api = ApiService();
@@ -32,9 +23,9 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
   List<Map<String, dynamic>> _servicios = [];
   String _busqueda = '';
 
-  final _nombreCtrl = TextEditingController();
-  final _descripcionCtrl = TextEditingController();
-  final _categoriaCtrl = TextEditingController();
+  final TextEditingController _nombreCtrl = TextEditingController();
+  final TextEditingController _descripcionCtrl = TextEditingController();
+  final TextEditingController _categoriaCtrl = TextEditingController();
   dynamic _servicioEnEdicionId;
 
   @override
@@ -59,7 +50,7 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
     try {
       _servicios = await _api.obtenerServicios();
     } catch (e) {
-      _error = 'No se pudo conectar con el servidor.';
+      _error = e.toString().replaceFirst('Exception: ', '');
     }
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -69,14 +60,12 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
     final texto = _busqueda.toLowerCase();
     return _servicios.where((s) {
       final combinado =
-      '${s['Nombre'] ?? ''} ${s['Descripcion'] ?? ''} ${s['Categoria'] ?? ''}'.toLowerCase();
+      '${s['Nombre'] ?? ''} ${s['Descripcion'] ?? ''} ${s['Categoria'] ?? ''}'
+          .toLowerCase();
       return combinado.contains(texto);
     }).toList();
   }
 
-  // ============================================================
-  // ACCIONES
-  // ============================================================
   void _limpiarFormulario() {
     _nombreCtrl.clear();
     _descripcionCtrl.clear();
@@ -116,7 +105,6 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
       'Descripcion': _descripcionCtrl.text.trim(),
       'Categoria': _categoriaCtrl.text.trim(),
     };
-
     try {
       if (_servicioEnEdicionId == null) {
         await _api.crearServicio(datos);
@@ -127,7 +115,16 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
       Navigator.pop(context);
       await _cargarDatos();
       if (!mounted) return;
-      _mostrarSnack(_servicioEnEdicionId == null ? 'Servicio creado correctamente' : 'Servicio actualizado');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _servicioEnEdicionId == null
+                ? '✅ Servicio creado'
+                : '✅ Servicio actualizado',
+          ),
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
     } catch (e) {
       _mostrarAlerta('Error', e.toString().replaceFirst('Exception: ', ''));
     }
@@ -142,7 +139,10 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
           '¿Deseas eliminar "${s['Nombre'] ?? ''}"? Esta acción no se puede deshacer.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Eliminar', style: TextStyle(color: kRojo)),
@@ -151,12 +151,16 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
       ),
     );
     if (confirmar != true) return;
-
     try {
       await _api.eliminarServicio(s['ID_servicio']);
       await _cargarDatos();
       if (!mounted) return;
-      _mostrarSnack('Servicio eliminado');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🗑️ Servicio eliminado'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } catch (e) {
       _mostrarAlerta('Error', e.toString().replaceFirst('Exception: ', ''));
     }
@@ -170,19 +174,15 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
         title: Text(titulo),
         content: Text(mensaje),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
         ],
       ),
     );
   }
 
-  void _mostrarSnack(String mensaje) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
-  }
-
-  // ============================================================
-  // UI
-  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -195,12 +195,19 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirNuevo,
         backgroundColor: kAzul,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Nuevo Servicio', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        label: const Text(
+          'Nuevo Servicio',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: kAzul))
@@ -218,17 +225,25 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
                 children: [
                   const Text(
                     'Gestión de Servicios',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A1A2E)),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
+                    ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: kAzul.withValues(alpha: 0.1),
+                      color: kAzul.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '${_servicios.length} servicios',
-                      style: const TextStyle(color: kAzul, fontSize: 13, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        color: kAzul,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -246,7 +261,8 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
                   prefixIcon: const Icon(Icons.search, size: 20),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                  contentPadding:
+                  const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(color: Colors.grey[300]!),
@@ -280,14 +296,18 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
     );
   }
 
-  Widget _buildEstadoMensaje({required IconData icono, required String texto, required Color color}) {
+  Widget _buildEstadoMensaje({
+    required IconData icono,
+    required String texto,
+    required Color color,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40),
       alignment: Alignment.center,
       child: Column(
         children: [
-          Icon(icono, size: 40, color: color.withValues(alpha: 0.6)),
+          Icon(icono, size: 40, color: color.withOpacity(0.6)),
           const SizedBox(height: 10),
           Text(texto, style: TextStyle(color: Colors.grey[600], fontSize: 13.5)),
         ],
@@ -303,7 +323,11 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -314,8 +338,15 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: kAzul.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                child: const Icon(Icons.medical_services_outlined, color: kAzul, size: 20),
+                decoration: BoxDecoration(
+                  color: kAzul.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.medical_services_outlined,
+                  color: kAzul,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -324,14 +355,17 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
                   children: [
                     Text(
                       (s['Nombre'] ?? 'Servicio').toString(),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15.5,
+                      ),
                     ),
                     if ((s['Categoria'] ?? '').toString().isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           (s['Categoria']).toString(),
-                          style: TextStyle(color: Colors.grey[600], fontSize: 12.5),
+                          style: TextStyle(fontSize: 12.5, color: Colors.grey[600]),
                         ),
                       ),
                   ],
@@ -339,10 +373,17 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: kVerdeBg, borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(20),
+                ),
                 child: const Text(
                   'ACTIVO',
-                  style: TextStyle(color: kVerde, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Color(0xFF16A34A),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -366,7 +407,9 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
                     foregroundColor: kAzul,
                     side: const BorderSide(color: kAzul),
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -380,7 +423,9 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
                     foregroundColor: kRojo,
                     side: const BorderSide(color: kRojo),
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -391,9 +436,9 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
     );
   }
 
-  // ------------------------------------------------------------
-  // FORMULARIO (bottom sheet) crear / editar
-  // ------------------------------------------------------------
+  // ============================================================
+  // FORMULARIO
+  // ============================================================
   Widget _buildFormulario() {
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -406,20 +451,26 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Center(
                 child: Container(
                   width: 40,
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(4)),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
               ),
               Row(
                 children: [
                   Expanded(
                     child: Text(
-                      _servicioEnEdicionId == null ? 'Nuevo Servicio' : 'Editar Servicio',
+                      _servicioEnEdicionId == null
+                          ? 'Nuevo Servicio'
+                          : 'Editar Servicio',
                       style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -433,7 +484,12 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
               ),
               const SizedBox(height: 12),
               _campoTexto('Nombre', _nombreCtrl, hint: 'Ej. Consulta general'),
-              _campoTexto('Descripción', _descripcionCtrl, hint: 'Breve descripción del servicio', maxLines: 3),
+              _campoTexto(
+                'Descripción',
+                _descripcionCtrl,
+                hint: 'Breve descripción del servicio',
+                maxLines: 3,
+              ),
               _campoTexto('Categoría', _categoriaCtrl, hint: 'Ej. Consulta, Vacunación...'),
               const SizedBox(height: 8),
               SizedBox(
@@ -443,11 +499,17 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kAzul,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: Text(
                     _servicioEnEdicionId == null ? 'Crear Servicio' : 'Guardar Cambios',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ),
@@ -459,7 +521,12 @@ class _AdminServiciosScreenState extends State<AdminServiciosScreen> {
     );
   }
 
-  Widget _campoTexto(String label, TextEditingController controller, {String? hint, int maxLines = 1}) {
+  Widget _campoTexto(
+      String label,
+      TextEditingController controller, {
+        String? hint,
+        int maxLines = 1,
+      }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(

@@ -1,23 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/perfil_screen.dart';
-import 'screens/mis_mascotas_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/citas_screen.dart';
-import 'screens/main_nav_screen.dart';
-import 'screens/inicio_screen.dart';
-import 'screens/alimentacion_screen.dart';
-import 'screens/landing_screen.dart';
+import 'package:petcard/admin_screens/Admin_home_screen.dart';
+import 'package:petcard/screens/perfil_screen.dart';
+import 'package:petcard/screens/mis_mascotas_screen.dart';
+import 'package:petcard/screens/login_screen.dart';
+import 'package:petcard/screens/register_screen.dart';
+import 'package:petcard/screens/citas_screen.dart';
+import 'package:petcard/screens/main_nav_screen.dart';
+import 'package:petcard/screens/inicio_screen.dart';
+import 'package:petcard/screens/alimentacion_screen.dart';
+import 'package:petcard/screens/landing_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+// ============================================================
+// IMPORTS DE ADMIN
+// ============================================================
+import 'package:petcard/admin_screens/Admin_home_screen.dart';
+import 'package:petcard/admin_screens/Admin_alimentacion_screen.dart';
+import 'package:petcard/admin_screens/Admin_servicios_screen.dart';
+import 'package:petcard/admin_screens/Admin_notificaciones_screen.dart';
+import 'package:petcard/admin_screens/Admin_usuarios_screen.dart';
+import 'package:petcard/admin_screens/Admin_citas_screen.dart';
+import 'package:petcard/admin_screens/Admin_mascotas_screen.dart';
+import 'package:petcard/admin_screens/Admin_vacunas_screen.dart';
 
-  await Supabase.initialize(
-    url: 'https://evaanefrbursctyosbbp.supabase.co',
-    publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YWFuZWZyYnVyc2N0eW9zYmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMTQwNjIsImV4cCI6MjEwMjU5MDA2Mn0.c5p9ddkHTiLu5yK2VvezVxxUFvoPk16c5yzn7P_ELZc',                  // ← Reemplaza con tu anon key
-  );
-
+void main() {
   runApp(const MyApp());
 }
 
@@ -34,7 +39,6 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
         useMaterial3: true,
       ),
-      // RUTAS
       initialRoute: '/landing',
       routes: {
         '/login': (context) => const LoginScreen(),
@@ -43,27 +47,30 @@ class MyApp extends StatelessWidget {
         '/landing': (context) => const LandingScreen(),
         '/mis-mascotas': (context) => const MisMascotasScreen(),
         '/citas': (context) => const CitasScreen(),
-        // '/home' es la vista principal tras iniciar sesión: contiene la
-        // barra de navegación inferior con Inicio como pestaña por defecto.
         '/home': (context) => const MainNavScreen(),
         '/inicio': (context) => const InicioScreen(),
         '/alimentacion': (context) => const AlimentacionScreen(),
+        '/carnet': (context) =>
+        const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
+        '/notificaciones': (context) =>
+        const _ProximamenteScreen(titulo: 'Recordatorios'),
+
+        // ============================================================
+        // RUTAS DE ADMIN
+        // ============================================================
+        '/admin': (context) => const AdminHomeScreen(),
         '/admin-alimentacion': (context) => const AdminAlimentacionScreen(),
         '/admin-servicios': (context) => const AdminServiciosScreen(),
         '/admin-notificaciones': (context) => const AdminNotificacionesScreen(),
         '/admin-usuarios': (context) => const AdminUsuariosScreen(),
-        '/admin': (context) => const AdminHomeScreen(),
-        // Pantallas referenciadas desde Inicio pero aún por implementar
-        '/carnet': (context) =>
-            const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
-        '/notificaciones': (context) =>
-            const _ProximamenteScreen(titulo: 'Recordatorios'),
+        '/admin-citas': (context) => const AdminCitasScreen(),
+        '/admin-mascotas': (context) => const AdminMascotasScreen(),
+        '/admin-vacunas': (context) => const AdminVacunasScreen(),
       },
     );
   }
 }
 
-// Pantalla temporal para funcionalidades pendientes
 class _ProximamenteScreen extends StatelessWidget {
   final String titulo;
   const _ProximamenteScreen({required this.titulo});
