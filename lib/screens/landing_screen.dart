@@ -1,11 +1,32 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 
-class LandingScreen extends StatelessWidget {
+class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
+
+  @override
+  State<LandingScreen> createState() => _LandingScreenState();
+}
+
+class _LandingScreenState extends State<LandingScreen> {
+  final _authService = AuthService();
 
   static const Color blue = Color(0xFF2563EB);
   static const Color blueDark = Color(0xFF1D4ED8);
   static const Color ink = Color(0xFF172033);
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarSesion();
+  }
+
+  Future<void> _verificarSesion() async {
+    final activa = await _authService.haySesionActiva();
+    if (activa && mounted) {
+      Navigator.pushReplacementNamed(context, '/home');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -167,6 +167,60 @@ class ApiService {
   }
 
   // ============================================================
+  // API USUARIOS (Gestión de Perfil)
+  // Métodos: GET, POST, PUT, DELETE
+  // ============================================================
+
+  // 1. GET: Obtener información del perfil actual
+  Future<Map<String, dynamic>> obtenerPerfil() async {
+    return obtenerMiUsuario();
+  }
+
+  // 2. POST: Registro de nuevo usuario (ya implementado arriba)
+  // registrarUsuario(...)
+
+  // 3. PUT: Editar información del perfil
+  Future<Map<String, dynamic>> actualizarPerfil({
+    required int id,
+    String? nombre,
+    String? correo,
+    String? telefono,
+  }) async {
+    final headers = await _headersConToken();
+    final response = await _client.put(
+      Uri.parse('$baseUrl/usuarios/$id'),
+      headers: headers,
+      body: jsonEncode({
+        if (nombre != null) 'Nombre': nombre,
+        if (correo != null) 'Correo': correo,
+        if (telefono != null) 'Telefono': telefono,
+      }),
+    );
+
+    final data = _parseBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    }
+    throw Exception(data['error'] ?? 'Error al actualizar el perfil.');
+  }
+
+  // 4. DELETE: Eliminar cuenta de usuario
+  Future<void> eliminarCuenta(int id) async {
+    final headers = await _headersConToken();
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/usuarios/$id'),
+      headers: headers,
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      await borrarToken();
+      return;
+    }
+    final data = _parseBody(response);
+    throw Exception(data['error'] ?? 'Error al eliminar la cuenta.');
+  }
+
+  // ============================================================
   // LOGOUT
   // ============================================================
 

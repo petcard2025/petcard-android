@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../services/auth_service.dart';
 import 'register_screen.dart';
 
@@ -34,10 +36,17 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.signIn(
+      final respuesta = await _authService.signIn(
         email: _emailController.text,
         password: _passwordController.text,
       );
+
+      // Guardar datos del usuario para persistencia en las vistas (Inicio, Perfil, etc)
+      if (respuesta['usuario'] != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            'petcard_usuario_actual', jsonEncode(respuesta['usuario']));
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

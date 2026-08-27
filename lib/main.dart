@@ -8,6 +8,8 @@ import 'screens/main_nav_screen.dart';
 import 'screens/inicio_screen.dart';
 import 'screens/alimentacion_screen.dart';
 import 'screens/landing_screen.dart';
+import 'screens/gestion_servicios.dart';
+import 'screens/carnet_digital.dart';
 
 void main() {
   runApp(const MyApp());
@@ -40,9 +42,8 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const MainNavScreen(),
         '/inicio': (context) => const InicioScreen(),
         '/alimentacion': (context) => const AlimentacionScreen(),
-        // Pantallas referenciadas desde Inicio pero aún por implementar
-        '/carnet': (context) =>
-            const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
+        '/gestion-servicios': (context) => const GestionServiciosScreen(),
+        '/carnet': (context) => const CarnetDigitalScreen(),
         '/notificaciones': (context) =>
             const _ProximamenteScreen(titulo: 'Recordatorios'),
       },

@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../services/api_service.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({super.key});
@@ -14,6 +15,8 @@ class PerfilScreen extends StatefulWidget {
 }
 
 class _PerfilScreenState extends State<PerfilScreen> {
+  final ApiService _apiService = ApiService();
+
   // ============================================================
   // VARIABLES DE ESTADO
   // ============================================================
@@ -110,55 +113,49 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
+      final usuarioStr = prefs.getString('petcard_usuario_actual');
+      int userId = 0;
+      if (usuarioStr != null) {
+        final Map<String, dynamic> json = jsonDecode(usuarioStr);
+        userId = json['id'] ?? 0;
+      }
 
-      // Actualizar datos
+      // 1. Actualizar en el BACKEND a través de la API
+      await _apiService.actualizarPerfil(
+        id: userId,
+        nombre: _nombreController.text.trim(),
+        correo: _emailController.text.trim(),
+        telefono: _telefonoController.text.trim(),
+      );
+
+      // 2. Actualizar datos locales en SharedPreferences
       final Map<String, dynamic> usuarioActualizado = {
-        'Nombre': _nombreController.text.trim(),
-        'Apellido': _apellidoController.text.trim(),
-        'Correo': _emailController.text.trim(),
-        'Telefono': _telefonoController.text.trim(),
-        'Direccion': _direccionController.text.trim(),
-        'Emergencia': _emergenciaController.text.trim(),
+        'id': userId,
+        'nombre': _nombreController.text.trim(),
+        'correo': _emailController.text.trim(),
+        'telefono': _telefonoController.text.trim(),
+        'direccion': _direccionController.text.trim(),
+        'emergencia': _emergenciaController.text.trim(),
       };
 
-      // Actualizar en SharedPreferences
       await prefs.setString(
         'petcard_usuario_actual',
         jsonEncode(usuarioActualizado),
       );
 
-      // Actualizar lista de usuarios
-      final usuariosStr = prefs.getString('petcard_usuarios') ?? '[]';
-      List<dynamic> usuarios = jsonDecode(usuariosStr);
-
-      final index = usuarios.indexWhere(
-            (u) =>
-        u['documento'] == prefs.getString('petcard_documento') &&
-            u['tipoDocumento'] == prefs.getString('petcard_tipo_documento'),
-      );
-
-      if (index != -1) {
-        usuarios[index] = {...usuarios[index], ...usuarioActualizado};
-        await prefs.setString('petcard_usuarios', jsonEncode(usuarios));
-      }
-
-      // Actualizar variables locales
-      _nombre = usuarioActualizado['Nombre']!;
-      _apellido = usuarioActualizado['Apellido']!;
-      _email = usuarioActualizado['Correo']!;
-      _telefono = usuarioActualizado['Telefono']!;
-      _direccion = usuarioActualizado['Direccion']!;
-      _emergencia = usuarioActualizado['Emergencia']!;
-
+      // Actualizar variables locales de la vista
       setState(() {
+        _nombre = usuarioActualizado['nombre']!;
+        _email = usuarioActualizado['correo']!;
+        _telefono = usuarioActualizado['telefono']!;
         _enEdicion = false;
         _guardando = false;
       });
 
-      _mostrarAlerta('Éxito', '✅ Perfil actualizado correctamente');
+      _mostrarAlerta('Éxito', '✅ Perfil actualizado en el servidor');
     } catch (e) {
       setState(() => _guardando = false);
-      _mostrarAlerta('Error', '❌ Error al guardar los cambios');
+      _mostrarAlerta('Error', '❌ No se pudo actualizar en el servidor: $e');
       print('Error guardando usuario: $e');
     }
   }

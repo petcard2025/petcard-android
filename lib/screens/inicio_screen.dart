@@ -130,6 +130,8 @@ class _InicioScreenState extends State<InicioScreen> {
   void _irAPerfil() => widget.onIrATab != null
       ? widget.onIrATab!(4)
       : Navigator.pushNamed(context, '/perfil');
+  void _irAGestionServicios() =>
+      Navigator.pushNamed(context, '/gestion-servicios');
 
   // ============================================================
   // BUILD
@@ -470,6 +472,12 @@ class _InicioScreenState extends State<InicioScreen> {
         label: 'Recordatorios',
         color: const Color(0xFFF59E0B),
         onTap: _irANotificaciones,
+      ),
+      _Accion(
+        icon: Icons.assignment,
+        label: 'Gestión de Servicios',
+        color: const Color(0xFF7C3AED),
+        onTap: _irAGestionServicios,
       ),
     ];
 

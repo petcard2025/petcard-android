@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 
 /// Servicio centralizado de autenticación.
@@ -61,6 +62,8 @@ class AuthService {
 
   Future<void> signOut() async {
     await _apiService.logout();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('petcard_usuario_actual');
     _usuarioActual = null;
   }
 
