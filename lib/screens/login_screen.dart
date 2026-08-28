@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'register_screen.dart';
+import 'vet_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,15 +35,40 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.signIn(
+      final respuesta = await _authService.signIn(
         email: _emailController.text,
         password: _passwordController.text,
       );
 
       if (mounted) {
+        // Manejamos posibles variantes en el nombre del campo (usuario o user)
+        final usuario = respuesta['usuario'] ?? respuesta['user'];
+        
+        if (usuario == null) {
+          throw Exception('La respuesta del servidor no contiene datos de usuario.');
+        }
+
+        final rol = usuario['Rol']?.toString().toLowerCase();
+        final nombre = usuario['Nombre'] ?? 'Veterinario';
+        final id = (usuario['ID_usuario'] ?? usuario['id'])?.toString();
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Inicio de sesión exitoso')),
         );
+
+        if (rol == 'veterinario') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VetDashboardScreen(
+                nombreVeterinario: nombre,
+                idVeterinario: id,
+              ),
+            ),
+          );
+        } else {
+          Navigator.pushReplacementNamed(context, '/mis-mascotas');
+        }
       }
     } on AuthException catch (e) {
       if (mounted) {

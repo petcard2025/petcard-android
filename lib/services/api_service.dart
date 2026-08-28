@@ -46,6 +46,7 @@ class ApiService {
   Future<Map<String, String>> _headersConToken() async {
     final token = await obtenerToken();
     if (token == null) {
+      print('DEBUG - Error: No se encontró token en el almacenamiento.');
       throw Exception('No hay sesión activa.');
     }
     return {
@@ -130,10 +131,14 @@ class ApiService {
   Future<Map<String, dynamic>> obtenerMiUsuario() async {
     final headers = await _headersConToken();
 
+    print('DEBUG - Consultando /auth/me...');
     final response = await _client.get(
       Uri.parse('$baseUrl/auth/me'),
       headers: headers,
     );
+
+    print('DEBUG - /auth/me STATUS: ${response.statusCode}');
+    print('DEBUG - /auth/me BODY: ${response.body}');
 
     final data = _parseBody(response);
 
@@ -141,7 +146,7 @@ class ApiService {
       return data;
     }
 
-    throw Exception(data['error'] ?? 'No se pudo obtener el usuario.');
+    throw Exception(data['error'] ?? 'Error del servidor (${response.statusCode})');
   }
 
   // ============================================================
@@ -175,12 +180,101 @@ class ApiService {
   }
 
   // ============================================================
+  // CRUD GENÉRICO (citas, alimentación, servicios, mascotas...)
+  // Reutiliza el mismo token y el mismo cliente HTTP que confía
+  // en el certificado de desarrollo. Úsalo para cualquier endpoint
+  // protegido que devuelva/reciba JSON.
+  // ============================================================
+
+  /// GET que devuelve una lista (p. ej. /citas, /alimentacion, /servicios)
+  Future<List<dynamic>> obtenerLista(String endpoint) async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is List) return decoded;
+      return [];
+    }
+
+    final data = _parseBody(response);
+    throw Exception(data['error'] ?? 'Error al consultar $endpoint');
+  }
+
+  /// GET que devuelve un solo objeto (p. ej. /citas/5)
+  Future<Map<String, dynamic>> obtenerUno(String endpoint) async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+    );
+
+    final data = _parseBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    }
+    throw Exception(data['error'] ?? 'Error al consultar $endpoint');
+  }
+
+  /// POST — crear un registro
+  Future<Map<String, dynamic>> crear(
+      String endpoint, Map<String, dynamic> body) async {
+    final headers = await _headersConToken();
+    final response = await _client.post(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+      body: jsonEncode(body),
+    );
+
+    final data = _parseBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    }
+    throw Exception(data['error'] ?? 'Error al crear en $endpoint');
+  }
+
+  /// PUT — actualizar un registro existente
+  Future<Map<String, dynamic>> actualizar(
+      String endpoint, Map<String, dynamic> body) async {
+    final headers = await _headersConToken();
+    final response = await _client.put(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+      body: jsonEncode(body),
+    );
+
+    final data = _parseBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    }
+    throw Exception(data['error'] ?? 'Error al actualizar $endpoint');
+  }
+
+  /// DELETE — eliminar un registro
+  Future<void> eliminar(String endpoint) async {
+    final headers = await _headersConToken();
+    final response = await _client.delete(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+    final data = _parseBody(response);
+    throw Exception(data['error'] ?? 'Error al eliminar $endpoint');
+  }
+
+  // ============================================================
   // HELPER
   // ============================================================
 
   Map<String, dynamic> _parseBody(http.Response response) {
     try {
-      final decoded = jsonDecode(response.body);
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is Map<String, dynamic>) return decoded;
       return {};
     } catch (_) {
