@@ -6,7 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   // Android Emulator → computador
-  static const String baseUrl = 'https://10.0.2.2:3000/api';
+  static const String baseUrl = 'https://10.0.2.2:3001/api';
 
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
@@ -172,6 +172,152 @@ class ApiService {
 
   Future<void> logout() async {
     await borrarToken();
+  }
+
+  // ============================================================
+  // MASCOTAS
+  // ============================================================
+
+  Future<List<Map<String, dynamic>>> obtenerMascotas() async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/mascotas'),
+      headers: headers,
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) {
+        return List<Map<String, dynamic>>.from(decoded);
+      }
+      return [];
+    }
+    throw Exception('Error al obtener mascotas.');
+  }
+
+  // ============================================================
+  // PLAN DE ALIMENTACION
+  // ============================================================
+
+  Future<List<Map<String, dynamic>>> obtenerPlanesAlimentacion() async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/alimentacion'),
+      headers: headers,
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) {
+        return List<Map<String, dynamic>>.from(decoded);
+      }
+      return [];
+    }
+    throw Exception('Error al obtener planes de alimentación.');
+  }
+
+  Future<List<Map<String, dynamic>>> obtenerPlanesPorMascota(
+      int idMascota) async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/alimentacion/mascota/$idMascota'),
+      headers: headers,
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) {
+        return List<Map<String, dynamic>>.from(decoded);
+      }
+      return [];
+    }
+    throw Exception('Error al obtener planes de la mascota.');
+  }
+
+  Future<Map<String, dynamic>> crearPlanAlimentacion({
+    required int idMascota,
+    required String tipoDieta,
+    String? frecuencia,
+    String? alergias,
+    String? horario,
+    int? calorias,
+    String? suplementos,
+    String? comidas,
+    String? fechaInicio,
+    String? fechaFin,
+    String? observaciones,
+  }) async {
+    final headers = await _headersConToken();
+    final response = await _client.post(
+      Uri.parse('$baseUrl/alimentacion'),
+      headers: headers,
+      body: jsonEncode({
+        'ID_mascota': idMascota,
+        'ID_servicio': 1,
+        'Tipo_dieta': tipoDieta,
+        'Frecuencia': frecuencia,
+        'Alergias': alergias,
+        'Horario': horario,
+        'Calorias': calorias,
+        'Suplementos': suplementos,
+        'Comidas': comidas,
+        'Fecha_inicio': fechaInicio,
+        'Fecha_fin': fechaFin,
+        'Observaciones': observaciones,
+      }),
+    );
+    final data = _parseBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    }
+    throw Exception(data['error'] ?? 'Error al crear plan de alimentación.');
+  }
+
+  Future<Map<String, dynamic>> actualizarPlanAlimentacion(
+    int idPlan, {
+    required String tipoDieta,
+    String? frecuencia,
+    String? alergias,
+    String? horario,
+    int? calorias,
+    String? suplementos,
+    String? comidas,
+    String? fechaInicio,
+    String? fechaFin,
+    String? observaciones,
+  }) async {
+    final headers = await _headersConToken();
+    final response = await _client.put(
+      Uri.parse('$baseUrl/alimentacion/$idPlan'),
+      headers: headers,
+      body: jsonEncode({
+        'Tipo_dieta': tipoDieta,
+        'Frecuencia': frecuencia,
+        'Alergias': alergias,
+        'Horario': horario,
+        'Calorias': calorias,
+        'Suplementos': suplementos,
+        'Comidas': comidas,
+        'Fecha_inicio': fechaInicio,
+        'Fecha_fin': fechaFin,
+        'Observaciones': observaciones,
+      }),
+    );
+    final data = _parseBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    }
+    throw Exception(
+        data['error'] ?? 'Error al actualizar plan de alimentación.');
+  }
+
+  Future<void> eliminarPlanAlimentacion(int idPlan) async {
+    final headers = await _headersConToken();
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/alimentacion/$idPlan'),
+      headers: headers,
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+    throw Exception('Error al eliminar plan de alimentación.');
   }
 
   // ============================================================

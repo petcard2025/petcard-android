@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../services/notification_service.dart';
 
 class InicioScreen extends StatefulWidget {
   const InicioScreen({super.key});
@@ -29,6 +30,7 @@ class _InicioScreenState extends State<InicioScreen> {
 
   List<dynamic> _mascotas = [];
   List<dynamic> _citas = [];
+  int _notifNoLeidas = 0;
 
   @override
   void initState() {
@@ -63,6 +65,8 @@ class _InicioScreenState extends State<InicioScreen> {
         final fechaB = (b as Map)['fechaHoraOrden'] ?? '';
         return fechaA.toString().compareTo(fechaB.toString());
       });
+
+      _notifNoLeidas = await NotificationService().getNoLeidas();
     } catch (e) {
       debugPrint('Error cargando datos de inicio: $e');
     }
@@ -82,14 +86,10 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   String get _numeroCarnet {
-    // ID generado a partir de las mascotas registradas
     final primer =
-        _mascotas.isNotEmpty ? (_mascotas.first as Map)['id'].toString() : '';
-    final digitos = primer.isEmpty ? '000001' : primer.padLeft(6, '0').substring(
-      primer.length > 6 ? primer.length - 6 : 0,
-      6,
-    );
-    return 'PET-$digitos';
+        _mascotas.isNotEmpty ? (_mascotas.first as Map)['id'].toString() : '000001';
+    if (primer.length >= 6) return 'PET-${primer.substring(primer.length - 6)}';
+    return 'PET-${primer.padLeft(6, '0')}';
   }
 
   Map? get _proximaCita {
@@ -110,6 +110,7 @@ class _InicioScreenState extends State<InicioScreen> {
   void _irACarnet() => Navigator.pushNamed(context, '/carnet');
   void _irANotificaciones() => Navigator.pushNamed(context, '/notificaciones');
   void _irAPerfil() => Navigator.pushNamed(context, '/perfil');
+  void _irAAlimentacion() => Navigator.pushNamed(context, '/alimentacion');
 
   // ============================================================
   // BUILD
@@ -446,9 +447,15 @@ class _InicioScreenState extends State<InicioScreen> {
         onTap: _irACarnet,
       ),
       _Accion(
+        icon: Icons.restaurant,
+        label: 'Alimentación',
+        color: const Color(0xFFF59E0B),
+        onTap: _irAAlimentacion,
+      ),
+      _Accion(
         icon: Icons.notifications,
         label: 'Recordatorios',
-        color: const Color(0xFFF59E0B),
+        color: const Color(0xFF8B5CF6),
         onTap: _irANotificaciones,
       ),
     ];
@@ -486,14 +493,41 @@ class _InicioScreenState extends State<InicioScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: accion.color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(accion.icon, color: accion.color, size: 22),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: accion.color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child:
+                        Icon(accion.icon, color: accion.color, size: 22),
+                  ),
+                  if (accion.label == 'Recordatorios' &&
+                      _notifNoLeidas > 0)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$_notifNoLeidas',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 10),
               Text(
@@ -674,7 +708,7 @@ class _InicioScreenState extends State<InicioScreen> {
           ),
           _buildEstadisticaRow(
             label: 'Recordatorios',
-            value: '0',
+            value: '$_notifNoLeidas',
             icon: Icons.notifications,
           ),
         ],

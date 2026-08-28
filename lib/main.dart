@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'screens/inicio_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -6,8 +7,18 @@ import 'screens/perfil_screen.dart';
 import 'screens/mis_mascotas_screen.dart';
 import 'screens/citas_screen.dart';
 import 'screens/prueba_screen.dart';
+import 'screens/alimentacion_screen.dart';
+import 'screens/notificaciones_screen.dart';
+import 'services/notification_service.dart';
 
-void main() {
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await NotificationService().init();
+
   runApp(const MyApp());
 }
 
@@ -34,9 +45,9 @@ class MyApp extends StatelessWidget {
         '/mis-mascotas': (context) => const MisMascotasScreen(),
         '/citas': (context) => const CitasScreen(),
         '/prueba': (context) => const PruebaScreen(),
-        // Pantallas referenciadas por el equipo pero aún por implementar
+        '/alimentacion': (context) => const AlimentacionScreen(),
         '/carnet': (context) => const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
-        '/notificaciones': (context) => const _ProximamenteScreen(titulo: 'Recordatorios'),
+        '/notificaciones': (context) => const NotificacionesScreen(),
       },
     );
   }

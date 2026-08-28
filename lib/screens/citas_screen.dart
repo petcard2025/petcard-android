@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../services/notification_service.dart';
 
 class CitasScreen extends StatefulWidget {
   const CitasScreen({super.key});
@@ -169,6 +170,14 @@ class _CitasScreenState extends State<CitasScreen> {
         _mostrarAlerta('Error', '❌ Error al guardar la cita');
       }
       debugPrint('Error guardando cita: $e');
+    }
+
+    if (mounted) {
+      NotificationService().show(
+        title: 'Nueva cita agendada',
+        body:
+            'Cita para $_mascotaSeleccionada el ${_formatearFecha(_fechaSeleccionada!)} a las $horaFormateada',
+      );
     }
   }
 
