@@ -10,6 +10,7 @@ class ApiService {
 
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
+  static const _usuarioKey = 'usuario_actual';
 
   // Cliente HTTP que acepta certificado autofirmado
   static http.Client _clienteHttp() {
@@ -69,6 +70,26 @@ class ApiService {
     await _storage.delete(key: _tokenKey);
   }
 
+  /// Guarda localmente los datos del usuario que devolvió el login
+  /// (Nombre, Correo, Telefono, Rol) para poder mostrarlos luego en
+  /// "Mi Perfil" sin depender de que AuthService siga vivo en memoria.
+  Future<void> _guardarUsuarioLocal(Map<String, dynamic> usuario) async {
+    await _storage.write(key: _usuarioKey, value: jsonEncode(usuario));
+  }
+
+  /// Datos del usuario guardados en el último login (Nombre, Correo,
+  /// Telefono, Rol). Devuelve null si nunca se guardaron (p.ej. la
+  /// sesión sigue activa de antes de este cambio) o si no hay sesión.
+  Future<Map<String, dynamic>?> obtenerUsuarioGuardado() async {
+    final raw = await _storage.read(key: _usuarioKey);
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {}
+    return null;
+  }
+
   Future<Map<String, String>> _headersConToken() async {
     final token = await obtenerToken();
     if (token == null) {
@@ -104,6 +125,10 @@ class ApiService {
         throw Exception('El servidor no devolvió un token.');
       }
       await _guardarToken(token);
+      final usuarioData = data['usuario'];
+      if (usuarioData is Map<String, dynamic>) {
+        await _guardarUsuarioLocal(usuarioData);
+      }
       return data;
     }
 
@@ -140,6 +165,7 @@ class ApiService {
 
   Future<void> logout() async {
     await borrarToken();
+    await _storage.delete(key: _usuarioKey);
   }
 // ============================================================
 // RECUPERAR CONTRASEÑA
@@ -422,6 +448,37 @@ class ApiService {
       headers: headers,
     );
     _verificarOk(response, 'No se pudo marcar como leída.');
+  }
+
+  /// Notificaciones de un usuario en particular (para "Mis notificaciones").
+  Future<List<Map<String, dynamic>>> obtenerNotificacionesPorUsuario(dynamic idUsuario) async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl/notificaciones/usuario/$idUsuario'),
+      headers: headers,
+    );
+    return _parseLista(response, 'No se pudieron obtener tus notificaciones.');
+  }
+
+  /// Notificaciones del usuario logueado, resolviendo el ID a partir del JWT.
+  Future<List<Map<String, dynamic>>> obtenerMisNotificaciones() async {
+    final usuario = await obtenerMiUsuario();
+    final idUsuario = usuario?['ID_usuario'];
+    if (idUsuario == null) {
+      throw Exception('No se pudo identificar al usuario de la sesión.');
+    }
+    return obtenerNotificacionesPorUsuario(idUsuario);
+  }
+
+  /// Marca varias notificaciones como leídas de una sola vez.
+  Future<void> marcarMultiplesNotificacionesLeidas(List<dynamic> ids) async {
+    final headers = await _headersConToken();
+    final response = await _client.patch(
+      Uri.parse('$baseUrl/notificaciones/marcar-como-leidas/bulk'),
+      headers: headers,
+      body: jsonEncode({'ids': ids}),
+    );
+    _verificarOk(response, 'No se pudieron marcar las notificaciones como leídas.');
   }
 
   Future<void> eliminarNotificacion(dynamic id) async {

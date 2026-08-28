@@ -8,6 +8,9 @@ import 'package:petcard/screens/main_nav_screen.dart';
 import 'package:petcard/screens/inicio_screen.dart';
 import 'package:petcard/screens/alimentacion_screen.dart';
 import 'package:petcard/screens/landing_screen.dart';
+import 'package:petcard/screens/gestion_servicios.dart';
+import 'package:petcard/screens/carnet_digital.dart';
+import 'package:petcard/screens/notificaciones_screen.dart';
 
 // ============================================================
 // IMPORTS DE ADMIN
@@ -50,10 +53,9 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const MainNavScreen(),
         '/inicio': (context) => const InicioScreen(),
         '/alimentacion': (context) => const AlimentacionScreen(),
-        '/carnet': (context) =>
-        const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
-        '/notificaciones': (context) =>
-        const _ProximamenteScreen(titulo: 'Recordatorios'),
+        '/carnet': (context) => const CarnetDigitalScreen(),
+        '/gestion-servicios': (context) => const GestionServiciosScreen(),
+        '/notificaciones': (context) => const NotificacionesScreen(),
 
         // ============================================================
         // RUTAS DE ADMIN
@@ -67,52 +69,6 @@ class MyApp extends StatelessWidget {
         '/admin-mascotas': (context) => const AdminMascotasScreen(),
         '/admin-vacunas': (context) => const AdminVacunasScreen(),
       },
-    );
-  }
-}
-
-class _ProximamenteScreen extends StatelessWidget {
-  final String titulo;
-  const _ProximamenteScreen({required this.titulo});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF2563EB),
-        elevation: 0,
-        title: const Text(
-          'PETCARD',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.construction, size: 64, color: Color(0xFF2563EB)),
-            const SizedBox(height: 16),
-            Text(
-              titulo,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1A1A2E),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Próximamente',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

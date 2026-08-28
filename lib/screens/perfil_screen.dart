@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../services/api_service.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({super.key});
@@ -14,6 +15,8 @@ class PerfilScreen extends StatefulWidget {
 }
 
 class _PerfilScreenState extends State<PerfilScreen> {
+  final ApiService _api = ApiService();
+
   // ============================================================
   // VARIABLES DE ESTADO
   // ============================================================
@@ -28,6 +31,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   String _telefono = '';
   String _direccion = '';
   String _emergencia = '';
+  String _rol = 'cliente';
 
   // Controladores
   final TextEditingController _nombreController = TextEditingController();
@@ -58,35 +62,54 @@ class _PerfilScreenState extends State<PerfilScreen> {
   }
 
   // ============================================================
-  // CARGA DE DATOS
+  // CARGA DE DATOS (usuario real de la sesión + dirección del cliente)
   // ============================================================
   Future<void> _cargarUsuario() async {
     setState(() => _isLoading = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final usuarioStr = prefs.getString('petcard_usuario_actual');
+      // 1) Datos guardados en el último login (Nombre, Correo, Telefono,
+      //    Rol). Si la sesión venía de antes de este cambio y no hay
+      //    nada guardado, caemos al JWT (que igual trae Nombre/Correo/Rol,
+      //    aunque no Telefono).
+      Map<String, dynamic>? usuario = await _api.obtenerUsuarioGuardado();
+      usuario ??= await _api.obtenerMiUsuario();
 
-      if (usuarioStr != null) {
-        final Map<String, dynamic> json = jsonDecode(usuarioStr);
-        _nombre = json['Nombre'] ?? json['nombre'] ?? '';
-        _apellido = json['Apellido'] ?? json['apellido'] ?? '';
-        _email = json['Correo'] ?? json['email'] ?? '';
-        _telefono = json['Telefono'] ?? json['telefono'] ?? '';
-        _direccion = json['Direccion'] ?? json['direccion'] ?? '';
-        _emergencia = json['Emergencia'] ?? json['emergencia'] ?? '';
+      if (usuario != null) {
+        // La tabla `usuario` solo tiene un campo "Nombre" con el nombre
+        // completo (no hay Apellido por separado en la base de datos),
+        // así que lo partimos solo para mostrarlo en los dos campos.
+        final nombreCompleto = (usuario['Nombre'] ?? '').toString().trim();
+        final partes = nombreCompleto.split(RegExp(r'\s+'));
+        _nombre = partes.isNotEmpty && partes.first.isNotEmpty ? partes.first : '';
+        _apellido = partes.length > 1 ? partes.sublist(1).join(' ') : '';
+        _email = (usuario['Correo'] ?? '').toString();
+        _telefono = (usuario['Telefono'] ?? '').toString();
+        _rol = (usuario['Rol'] ?? 'cliente').toString();
 
-        _nombreController.text = _nombre;
-        _apellidoController.text = _apellido;
-        _emailController.text = _email;
-        _telefonoController.text = _telefono;
-        _direccionController.text = _direccion;
-        _emergenciaController.text = _emergencia;
+        // 2) La dirección vive en la tabla `cliente`, no en `usuario`.
+        final idUsuario = usuario['ID_usuario'];
+        if (idUsuario != null) {
+          try {
+            final cliente = await _api.obtenerClientePorUsuario(idUsuario);
+            _direccion = (cliente?['Direccion'] ?? '').toString();
+          } catch (e) {
+            debugPrint('Error obteniendo dirección del cliente: $e');
+          }
+        }
       }
+
+      _nombreController.text = _nombre;
+      _apellidoController.text = _apellido;
+      _emailController.text = _email;
+      _telefonoController.text = _telefono;
+      _direccionController.text = _direccion;
+      _emergenciaController.text = _emergencia;
     } catch (e) {
-      print('Error cargando usuario: $e');
+      debugPrint('Error cargando usuario: $e');
     }
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
   }
 
@@ -216,9 +239,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
           ),
           TextButton(
             onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('petcard_token');
-              await prefs.remove('petcard_usuario_actual');
+              await _api.logout();
+              if (!mounted) return;
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 '/login',
@@ -358,7 +380,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      'Usuario de PetCard',
+                      _rol[0].toUpperCase() + _rol.substring(1),
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.85),
                         fontSize: 13,

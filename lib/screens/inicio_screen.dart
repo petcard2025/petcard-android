@@ -126,6 +126,8 @@ class _InicioScreenState extends State<InicioScreen> {
       ? widget.onIrATab!(1)
       : Navigator.pushNamed(context, '/citas');
   void _irACarnet() => Navigator.pushNamed(context, '/carnet');
+  void _irAGestionServicios() =>
+      Navigator.pushNamed(context, '/gestion-servicios');
   void _irANotificaciones() => Navigator.pushNamed(context, '/notificaciones');
   void _irAPerfil() => widget.onIrATab != null
       ? widget.onIrATab!(4)
@@ -470,6 +472,12 @@ class _InicioScreenState extends State<InicioScreen> {
         label: 'Recordatorios',
         color: const Color(0xFFF59E0B),
         onTap: _irANotificaciones,
+      ),
+      _Accion(
+        icon: Icons.assignment,
+        label: 'Gestión de Servicios',
+        color: const Color(0xFF7C3AED),
+        onTap: _irAGestionServicios,
       ),
     ];
 
