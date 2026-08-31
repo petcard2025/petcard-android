@@ -5,13 +5,13 @@ import 'package:http/io_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  // Cambia esto según tu configuración
+
   static const String baseUrl = 'https://127.0.0.1:3001/api';
 
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
 
-  // Cliente HTTP que acepta certificado autofirmado
+
   static http.Client _clienteHttp() {
     final httpClient = HttpClient()
       ..badCertificateCallback = (cert, host, port) {

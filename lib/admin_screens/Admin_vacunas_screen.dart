@@ -34,14 +34,17 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
   bool _editando = false;
   dynamic _vacunaEditandoId;
 
-  final _mascotaCtrl = TextEditingController();
-  final _servicioCtrl = TextEditingController();
-  final _nombreVacunaCtrl = TextEditingController();
-  final _loteCtrl = TextEditingController();
-  final _fechaAplicacionCtrl = TextEditingController();
-  final _proximaDosisCtrl = TextEditingController();
-  final _estadoCtrl = TextEditingController();
-  final _observacionesCtrl = TextEditingController();
+  // Controladores de texto
+  final TextEditingController _nombreVacunaCtrl = TextEditingController();
+  final TextEditingController _loteCtrl = TextEditingController();
+  final TextEditingController _fechaAplicacionCtrl = TextEditingController();
+  final TextEditingController _proximaDosisCtrl = TextEditingController();
+  final TextEditingController _estadoCtrl = TextEditingController();
+  final TextEditingController _observacionesCtrl = TextEditingController();
+
+  // Variables para dropdowns (IDs)
+  int? _mascotaSeleccionadaId;
+  int? _servicioSeleccionadoId;
 
   @override
   void initState() {
@@ -51,8 +54,6 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
 
   @override
   void dispose() {
-    _mascotaCtrl.dispose();
-    _servicioCtrl.dispose();
     _nombreVacunaCtrl.dispose();
     _loteCtrl.dispose();
     _fechaAplicacionCtrl.dispose();
@@ -96,14 +97,14 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
   }
 
   void _limpiarFormulario() {
-    _mascotaCtrl.clear();
-    _servicioCtrl.clear();
     _nombreVacunaCtrl.clear();
     _loteCtrl.clear();
     _fechaAplicacionCtrl.clear();
     _proximaDosisCtrl.clear();
     _estadoCtrl.text = 'Pendiente';
     _observacionesCtrl.clear();
+    _mascotaSeleccionadaId = null;
+    _servicioSeleccionadoId = null;
     _vacunaEditandoId = null;
     _editando = false;
   }
@@ -115,8 +116,8 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
 
   void _abrirEditar(Map<String, dynamic> v) {
     _vacunaEditandoId = v['ID_carnetVacunas'];
-    _mascotaCtrl.text = (v['Nombre_mascota'] ?? '').toString();
-    _servicioCtrl.text = (v['ID_servicio'] ?? '').toString();
+    _mascotaSeleccionadaId = v['ID_mascota'];
+    _servicioSeleccionadoId = v['ID_servicio'];
     _nombreVacunaCtrl.text = (v['Nombre_vacuna'] ?? '').toString();
     _loteCtrl.text = (v['Lote'] ?? '').toString();
     _fechaAplicacionCtrl.text = (v['Fecha_aplicacion'] ?? '').toString();
@@ -128,14 +129,14 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
   }
 
   Future<void> _guardarVacuna() async {
-    if (_mascotaCtrl.text.trim().isEmpty || _nombreVacunaCtrl.text.trim().isEmpty) {
+    if (_mascotaSeleccionadaId == null || _nombreVacunaCtrl.text.trim().isEmpty) {
       _mostrarAlerta('Atención', 'Mascota y nombre de vacuna son obligatorios.');
       return;
     }
 
     final datos = {
-      'ID_mascota': _mascotaCtrl.text.trim(),
-      'ID_servicio': _servicioCtrl.text.trim(),
+      'ID_mascota': _mascotaSeleccionadaId,
+      'ID_servicio': _servicioSeleccionadoId ?? 0,
       'Nombre_vacuna': _nombreVacunaCtrl.text.trim(),
       'Lote': _loteCtrl.text.trim(),
       'Fecha_aplicacion': _fechaAplicacionCtrl.text.trim().isEmpty
@@ -220,7 +221,6 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
   String _getEstadoColor(String estado) {
     switch (estado.toLowerCase()) {
       case 'completada':
-        return '#10B981';
       case 'aplicada':
         return '#10B981';
       case 'pendiente':
@@ -247,7 +247,9 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: _mostrarFormulario
+          ? null
+          : FloatingActionButton.extended(
         onPressed: _abrirNuevo,
         backgroundColor: kAzul,
         icon: const Icon(Icons.add, color: Colors.white),
@@ -579,22 +581,104 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildDropdownBusqueda(
-                    label: 'Mascota',
-                    controller: _mascotaCtrl,
-                    opciones: _mascotas.map((m) => m['Nombre']?.toString() ?? '').toList(),
+
+                  // Mascota
+                  DropdownButtonFormField<int>(
+                    value: _mascotaSeleccionadaId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Mascota',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: kAzul, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    items: _mascotas.map((m) {
+                      final id = m['ID_mascota'] ?? 0;
+                      final nombre = m['Nombre'] ?? 'Sin nombre';
+                      return DropdownMenuItem<int>(
+                        value: id,
+                        child: Text(nombre),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _mascotaSeleccionadaId = value);
+                    },
+                    validator: (value) {
+                      if (value == null || value == 0) {
+                        return 'Selecciona una mascota';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
-                  _buildDropdownBusqueda(
-                    label: 'Servicio',
-                    controller: _servicioCtrl,
-                    opciones: _servicios.map((s) => s['Nombre']?.toString() ?? '').toList(),
+
+                  // Servicio
+                  DropdownButtonFormField<int>(
+                    value: _servicioSeleccionadoId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Servicio',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: kAzul, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    items: _servicios.map((s) {
+                      final id = s['ID_servicio'] ?? 0;
+                      final nombre = s['Nombre'] ?? 'Sin nombre';
+                      return DropdownMenuItem<int>(
+                        value: id,
+                        child: Text(nombre),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _servicioSeleccionadoId = value);
+                    },
+                    validator: (value) {
+                      if (value == null || value == 0) {
+                        return 'Selecciona un servicio';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
+
                   _campoTexto('Nombre de la vacuna', _nombreVacunaCtrl, hint: 'Ej. Antirrábica'),
                   const SizedBox(height: 12),
                   _campoTexto('Lote', _loteCtrl, hint: 'Ej. A123'),
                   const SizedBox(height: 12),
+
                   Row(
                     children: [
                       Expanded(
@@ -607,14 +691,49 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildDropdownBusqueda(
-                    label: 'Estado',
-                    controller: _estadoCtrl,
-                    opciones: ['Pendiente', 'Completada', 'Aplicada'],
+
+                  // Estado
+                  DropdownButtonFormField<String>(
+                    value: _estadoCtrl.text.isNotEmpty ? _estadoCtrl.text : null,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Estado',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: kAzul, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    items: ['Pendiente', 'Completada', 'Aplicada']
+                        .map((estado) {
+                      return DropdownMenuItem<String>(
+                        value: estado,
+                        child: Text(estado),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _estadoCtrl.text = value ?? '');
+                    },
                   ),
                   const SizedBox(height: 12),
+
                   _campoTexto('Observaciones', _observacionesCtrl, hint: 'Notas adicionales', maxLines: 2),
                   const SizedBox(height: 20),
+
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -645,50 +764,11 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
     );
   }
 
-  Widget _buildDropdownBusqueda({
-    required String label,
-    required TextEditingController controller,
-    required List<String> opciones,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: controller.text.isNotEmpty ? controller.text : null,
-              isExpanded: true,
-              hint: Text('Selecciona...', style: TextStyle(color: Colors.grey[400])),
-              items: opciones.map((opcion) {
-                return DropdownMenuItem(
-                  value: opcion,
-                  child: Text(opcion),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() => controller.text = value ?? '');
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _campoTexto(
       String label,
       TextEditingController controller, {
         String? hint,
         int maxLines = 1,
-        TextInputType keyboardType = TextInputType.text,
       }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -698,7 +778,6 @@ class _AdminVacunasScreenState extends State<AdminVacunasScreen> {
         TextField(
           controller: controller,
           maxLines: maxLines,
-          keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hint,
             border: OutlineInputBorder(
