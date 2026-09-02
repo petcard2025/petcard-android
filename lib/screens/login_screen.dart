@@ -50,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         final rol = usuario['Rol']?.toString().toLowerCase();
         final nombre = usuario['Nombre'] ?? 'Veterinario';
-        final id = (usuario['ID_usuario'] ?? usuario['id'])?.toString();
+        final id = (usuario['ID_veterinario'] ?? usuario['ID_usuario'])?.toString();
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Inicio de sesión exitoso')),

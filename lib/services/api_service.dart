@@ -6,7 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   // Android Emulator → computador
-  static const String baseUrl = 'https://10.0.2.2:3000/api';
+  static const String baseUrl = 'https://10.0.2.2:3001/api';
 
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
