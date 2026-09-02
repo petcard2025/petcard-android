@@ -21,8 +21,37 @@ import 'package:petcard/admin_screens/Admin_usuarios_screen.dart';
 import 'package:petcard/admin_screens/Admin_citas_screen.dart';
 import 'package:petcard/admin_screens/Admin_mascotas_screen.dart';
 import 'package:petcard/admin_screens/Admin_vacunas_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'screens/perfil_screen.dart';
+import 'screens/mis_mascotas_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/citas_screen.dart';
+import 'screens/main_nav_screen.dart';
+import 'screens/inicio_screen.dart';
+import 'screens/alimentacion_screen.dart';
+import 'screens/landing_screen.dart';
+import 'screens/vet_dashboard_screen.dart';
+import 'screens/vet_citas_screen.dart';
+import 'screens/vet_alimentacion_screen.dart';
+import 'screens/Admin_alimentacion_screen.dart';
+import 'screens/Admin_servicios_screen.dart';
+import 'screens/Admin_notificaciones_screen.dart';
+import 'screens/Admin_usuarios_screen.dart';
+import 'screens/Admin_home_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://evaanefrbursctyosbbp.supabase.co',
+    publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YWFuZWZyYnVyc2N0eW9zYmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMTQwNjIsImV4cCI6MjEwMjU5MDA2Mn0.c5p9ddkHTiLu5yK2VvezVxxUFvoPk16c5yzn7P_ELZc',
+  );
+
+  // Inicializa el idioma español para fechas (usado en las pantallas de veterinario)
+  await initializeDateFormatting('es', null);
+
   runApp(const MyApp());
 }
 
@@ -50,6 +79,12 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const MainNavScreen(),
         '/inicio': (context) => const InicioScreen(),
         '/alimentacion': (context) => const AlimentacionScreen(),
+        '/admin-alimentacion': (context) => AdminAlimentacionScreen(),
+        '/admin-servicios': (context) => AdminServiciosScreen(),
+        '/admin-notificaciones': (context) => AdminNotificacionesScreen(),
+        '/admin-usuarios': (context) => AdminUsuariosScreen(),
+        '/admin': (context) => AdminHomeScreen(),
+        // Pantallas referenciadas desde Inicio pero aún por implementar
         '/carnet': (context) =>
         const _ProximamenteScreen(titulo: 'Carnet de Vacunas'),
         '/notificaciones': (context) =>
