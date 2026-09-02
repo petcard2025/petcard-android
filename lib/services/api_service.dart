@@ -6,7 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
 
-  static const String baseUrl = 'https://127.0.0.1:3001/api';
+static const String baseUrl = 'https://10.0.2.2:3001/api';
 
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
@@ -15,7 +15,7 @@ class ApiService {
   static http.Client _clienteHttp() {
     final httpClient = HttpClient()
       ..badCertificateCallback = (cert, host, port) {
-        return host == '127.0.0.1';
+        return host == '10.0.2.2';
       };
     return IOClient(httpClient);
   }
