@@ -727,7 +727,7 @@ class _AdminCitasScreenState extends State<AdminCitasScreen> {
                     ),
                     items: _veterinarios.map((v) {
                       final id = v['ID_veterinario'] ?? 0;
-                      final nombre = v['usuario']?['nombre'] ?? 'Sin nombre';
+                      final nombre = v['Nombre'] ?? 'Sin nombre';
                       return DropdownMenuItem<int>(
                         value: id,
                         child: Text(nombre),
