@@ -37,15 +37,17 @@ class _AdminCitasScreenState extends State<AdminCitasScreen> {
   bool _editando = false;
   dynamic _citaEditandoId;
 
-  final _mascotaCtrl = TextEditingController();
-  final _clienteCtrl = TextEditingController();
-  final _servicioCtrl = TextEditingController();
-  final _veterinarioCtrl = TextEditingController();
-  final _fechaCtrl = TextEditingController();
-  final _horaCtrl = TextEditingController();
-  final _estadoCtrl = TextEditingController();
-  final _motivoCtrl = TextEditingController();
-  final _observacionesCtrl = TextEditingController();
+  // Controladores de texto
+  final TextEditingController _fechaCtrl = TextEditingController();
+  final TextEditingController _horaCtrl = TextEditingController();
+  final TextEditingController _estadoCtrl = TextEditingController();
+  final TextEditingController _motivoCtrl = TextEditingController();
+  final TextEditingController _observacionesCtrl = TextEditingController();
+
+  // Variables para dropdowns (IDs)
+  int? _mascotaSeleccionadaId;
+  int? _servicioSeleccionadoId;
+  int? _veterinarioSeleccionadoId;
 
   @override
   void initState() {
@@ -55,10 +57,6 @@ class _AdminCitasScreenState extends State<AdminCitasScreen> {
 
   @override
   void dispose() {
-    _mascotaCtrl.dispose();
-    _clienteCtrl.dispose();
-    _servicioCtrl.dispose();
-    _veterinarioCtrl.dispose();
     _fechaCtrl.dispose();
     _horaCtrl.dispose();
     _estadoCtrl.dispose();
@@ -103,15 +101,14 @@ class _AdminCitasScreenState extends State<AdminCitasScreen> {
   }
 
   void _limpiarFormulario() {
-    _mascotaCtrl.clear();
-    _clienteCtrl.clear();
-    _servicioCtrl.clear();
-    _veterinarioCtrl.clear();
     _fechaCtrl.clear();
     _horaCtrl.clear();
     _estadoCtrl.text = 'Pendiente';
     _motivoCtrl.clear();
     _observacionesCtrl.clear();
+    _mascotaSeleccionadaId = null;
+    _servicioSeleccionadoId = null;
+    _veterinarioSeleccionadoId = null;
     _citaEditandoId = null;
     _editando = false;
   }
@@ -121,12 +118,26 @@ class _AdminCitasScreenState extends State<AdminCitasScreen> {
     setState(() => _mostrarFormulario = true);
   }
 
+  // Devuelve el id solo si existe en la lista de opciones cargada; si no,
+  // regresa null para evitar que el DropdownButtonFormField truene al
+  // abrir una cita cuyo mascota/servicio/veterinario ya no existe (o no
+  // se cargó) en el catálogo actual.
+  int? _idValidoEnLista(dynamic id, List<Map<String, dynamic>> lista, String campoId) {
+    if (id == null) return null;
+    final idInt = id is int ? id : int.tryParse(id.toString());
+    if (idInt == null) return null;
+    final existe = lista.any((e) => e[campoId] == idInt);
+    return existe ? idInt : null;
+  }
+
   void _abrirEditar(Map<String, dynamic> cita) {
     _citaEditandoId = cita['ID_cita'];
-    _mascotaCtrl.text = (cita['Nombre_mascota'] ?? '').toString();
-    _clienteCtrl.text = (cita['Nombre_cliente'] ?? '').toString();
-    _servicioCtrl.text = (cita['ID_servicio'] ?? '').toString();
-    _veterinarioCtrl.text = (cita['ID_veterinario'] ?? '').toString();
+    _mascotaSeleccionadaId =
+        _idValidoEnLista(cita['ID_mascota'], _mascotas, 'ID_mascota');
+    _servicioSeleccionadoId =
+        _idValidoEnLista(cita['ID_servicio'], _servicios, 'ID_servicio');
+    _veterinarioSeleccionadoId =
+        _idValidoEnLista(cita['ID_veterinario'], _veterinarios, 'ID_veterinario');
     _fechaCtrl.text = (cita['Fecha'] ?? '').toString();
     _horaCtrl.text = (cita['Hora'] ?? '').toString();
     _estadoCtrl.text = (cita['Estado'] ?? 'Pendiente').toString();
@@ -137,16 +148,15 @@ class _AdminCitasScreenState extends State<AdminCitasScreen> {
   }
 
   Future<void> _guardarCita() async {
-    if (_mascotaCtrl.text.trim().isEmpty || _servicioCtrl.text.trim().isEmpty) {
+    if (_mascotaSeleccionadaId == null || _servicioSeleccionadoId == null) {
       _mostrarAlerta('Atención', 'Mascota y servicio son obligatorios.');
       return;
     }
 
     final datos = {
-      'ID_mascota': _mascotaCtrl.text.trim(),
-      'ID_cliente': _clienteCtrl.text.trim(),
-      'ID_servicio': _servicioCtrl.text.trim(),
-      'ID_veterinario': _veterinarioCtrl.text.trim(),
+      'ID_mascota': _mascotaSeleccionadaId,
+      'ID_servicio': _servicioSeleccionadoId,
+      'ID_veterinario': _veterinarioSeleccionadoId ?? 0,
       'Fecha': _fechaCtrl.text.trim(),
       'Hora': _horaCtrl.text.trim(),
       'Estado': _estadoCtrl.text.trim(),
@@ -266,7 +276,9 @@ class _AdminCitasScreenState extends State<AdminCitasScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: _mostrarFormulario
+          ? null
+          : FloatingActionButton.extended(
         onPressed: _abrirNuevo,
         backgroundColor: kAzul,
         icon: const Icon(Icons.add, color: Colors.white),
@@ -594,26 +606,146 @@ class _AdminCitasScreenState extends State<AdminCitasScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildDropdownBusqueda(
-                    label: 'Mascota',
-                    controller: _mascotaCtrl,
-                    opciones: _mascotas.map((m) => m['Nombre']?.toString() ?? '').toList(),
+
+                  // Mascota
+                  DropdownButtonFormField<int>(
+                    value: _mascotaSeleccionadaId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Mascota',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: kAzul, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    items: _mascotas.map((m) {
+                      final id = m['ID_mascota'] ?? 0;
+                      final nombre = m['Nombre'] ?? 'Sin nombre';
+                      return DropdownMenuItem<int>(
+                        value: id,
+                        child: Text(nombre),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _mascotaSeleccionadaId = value);
+                    },
+                    validator: (value) {
+                      if (value == null || value == 0) {
+                        return 'Selecciona una mascota';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
-                  _campoTexto('Cliente (ID)', _clienteCtrl, hint: 'ID del cliente'),
-                  const SizedBox(height: 12),
-                  _buildDropdownBusqueda(
-                    label: 'Servicio',
-                    controller: _servicioCtrl,
-                    opciones: _servicios.map((s) => s['Nombre']?.toString() ?? '').toList(),
+
+                  // Servicio
+                  DropdownButtonFormField<int>(
+                    value: _servicioSeleccionadoId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Servicio',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: kAzul, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    items: _servicios.map((s) {
+                      final id = s['ID_servicio'] ?? 0;
+                      final nombre = s['Nombre'] ?? 'Sin nombre';
+                      return DropdownMenuItem<int>(
+                        value: id,
+                        child: Text(nombre),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _servicioSeleccionadoId = value);
+                    },
+                    validator: (value) {
+                      if (value == null || value == 0) {
+                        return 'Selecciona un servicio';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
-                  _buildDropdownBusqueda(
-                    label: 'Veterinario (ID)',
-                    controller: _veterinarioCtrl,
-                    opciones: _veterinarios.map((v) => v['ID_veterinario']?.toString() ?? '').toList(),
+
+                  // Veterinario
+                  DropdownButtonFormField<int>(
+                    value: _veterinarioSeleccionadoId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Veterinario',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: kAzul, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    items: _veterinarios.map((v) {
+                      final id = v['ID_veterinario'] ?? 0;
+                      final nombre = v['usuario']?['nombre'] ?? 'Sin nombre';
+                      return DropdownMenuItem<int>(
+                        value: id,
+                        child: Text(nombre),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _veterinarioSeleccionadoId = value);
+                    },
+                    validator: (value) {
+                      if (value == null || value == 0) {
+                        return 'Selecciona un veterinario';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
+
+                  // Fecha y Hora
                   Row(
                     children: [
                       Expanded(
@@ -626,16 +758,57 @@ class _AdminCitasScreenState extends State<AdminCitasScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildDropdownBusqueda(
-                    label: 'Estado',
-                    controller: _estadoCtrl,
-                    opciones: ['Pendiente', 'Confirmada', 'Completada', 'Cancelada'],
+
+                  // Estado
+                  DropdownButtonFormField<String>(
+                    value: _estadoCtrl.text.isNotEmpty ? _estadoCtrl.text : null,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Estado',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: kAzul, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    items: {
+                      'Pendiente',
+                      'Confirmada',
+                      'Completada',
+                      'Cancelada',
+                      if (_estadoCtrl.text.isNotEmpty) _estadoCtrl.text,
+                    }.map((estado) {
+                      return DropdownMenuItem<String>(
+                        value: estado,
+                        child: Text(estado),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _estadoCtrl.text = value ?? '');
+                    },
                   ),
                   const SizedBox(height: 12),
+
                   _campoTexto('Motivo', _motivoCtrl, hint: 'Motivo de la cita'),
                   const SizedBox(height: 12),
-                  _campoTexto('Observaciones', _observacionesCtrl, hint: 'Notas adicionales', maxLines: 2),
+                  _campoTexto('Observaciones', _observacionesCtrl,
+                      hint: 'Notas adicionales', maxLines: 2),
                   const SizedBox(height: 20),
+
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -663,44 +836,6 @@ class _AdminCitasScreenState extends State<AdminCitasScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildDropdownBusqueda({
-    required String label,
-    required TextEditingController controller,
-    required List<String> opciones,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: controller.text.isNotEmpty ? controller.text : null,
-              isExpanded: true,
-              hint: Text('Selecciona...', style: TextStyle(color: Colors.grey[400])),
-              items: opciones.map((opcion) {
-                return DropdownMenuItem(
-                  value: opcion,
-                  child: Text(opcion),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() => controller.text = value ?? '');
-              },
-            ),
-          ),
-        ),
-      ],
     );
   }
 

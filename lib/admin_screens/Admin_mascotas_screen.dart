@@ -240,7 +240,9 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: _mostrarFormulario
+          ? null
+          : FloatingActionButton.extended(
         onPressed: _abrirNuevo,
         backgroundColor: kAzul,
         icon: const Icon(Icons.add, color: Colors.white),

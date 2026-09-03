@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:petcard/screens/prueba_screen.dart';
 import 'package:petcard/screens/perfil_screen.dart';
 import 'package:petcard/screens/mis_mascotas_screen.dart';
 import 'package:petcard/screens/login_screen.dart';
@@ -25,7 +28,17 @@ import 'package:petcard/admin_screens/Admin_mascotas_screen.dart';
 import 'package:petcard/admin_screens/Admin_vacunas_screen.dart';
 
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://evaanefrbursctyosbbp.supabase.co',
+    publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YWFuZWZyYnVyc2N0eW9zYmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMTQwNjIsImV4cCI6MjEwMjU5MDA2Mn0.c5p9ddkHTiLu5yK2VvezVxxUFvoPk16c5yzn7P_ELZc',
+  );
+
+  // Inicializa el idioma español para fechas (usado en las pantallas de veterinario)
+  await initializeDateFormatting('es', null);
+
   runApp(const MyApp());
 }
 
@@ -56,6 +69,7 @@ class MyApp extends StatelessWidget {
         '/carnet': (context) => const CarnetDigitalScreen(),
         '/gestion-servicios': (context) => const GestionServiciosScreen(),
         '/notificaciones': (context) => const NotificacionesScreen(),
+        '/prueba': (context) => const PruebaScreen(),
 
         // ============================================================
         // RUTAS DE ADMIN

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'register_screen.dart';
+import 'vet_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -50,9 +51,22 @@ class _LoginScreenState extends State<LoginScreen> {
         final rol = (usuario?['Rol'] ?? usuario?['rol'] ?? '')
             .toString()
             .toLowerCase();
+        final nombre = usuario?['Nombre'] ?? 'Veterinario';
+        final id = (usuario?['ID_veterinario'] ?? usuario?['ID_usuario'])
+            ?.toString();
 
         if (rol == 'admin' || rol == 'administrador') {
           Navigator.pushReplacementNamed(context, '/admin');
+        } else if (rol == 'veterinario') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VetDashboardScreen(
+                nombreVeterinario: nombre,
+                idVeterinario: id,
+              ),
+            ),
+          );
         } else {
           Navigator.pushReplacementNamed(context, '/home');
         }
