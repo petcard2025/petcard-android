@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import 'register_screen.dart';
 import 'vet_dashboard_screen.dart';
 
@@ -52,18 +53,35 @@ class _LoginScreenState extends State<LoginScreen> {
             .toString()
             .toLowerCase();
         final nombre = usuario?['Nombre'] ?? 'Veterinario';
-        final id = (usuario?['ID_veterinario'] ?? usuario?['ID_usuario'])
-            ?.toString();
+        final idUsuario = usuario?['ID_usuario'];
 
         if (rol == 'admin' || rol == 'administrador') {
           Navigator.pushReplacementNamed(context, '/admin');
         } else if (rol == 'veterinario') {
+          // El objeto "usuario" del login NO trae ID_veterinario (ese campo
+          // vive en la tabla 'veterinario', no en 'usuario'). Buscamos el
+          // registro de veterinario que corresponde a este usuario para
+          // obtener su ID_veterinario real, que es el que usan las citas.
+          String? idVeterinarioReal;
+          try {
+            final veterinarios = await ApiService().obtenerVeterinarios();
+            final match = veterinarios.firstWhere(
+                  (v) => v['ID_usuario']?.toString() == idUsuario?.toString(),
+              orElse: () => <String, dynamic>{},
+            );
+            idVeterinarioReal = match['ID_veterinario']?.toString();
+          } catch (_) {
+            // Si falla, seguimos con null; el dashboard mostrará todas
+            // las citas en vez de fallar por completo.
+          }
+
+          if (!mounted) return;
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (context) => VetDashboardScreen(
                 nombreVeterinario: nombre,
-                idVeterinario: id,
+                idVeterinario: idVeterinarioReal,
               ),
             ),
           );

@@ -421,27 +421,28 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 2.4,
+      childAspectRatio: 1.7,
       children: stats.map((s) {
         final (value, label, icon, color, bg) = s;
         return Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: VetColors.border),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   color: bg,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: color, size: 18),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -456,6 +457,8 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
                           color: VetColors.text,
                         )),
                     Text(label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 11.5,
                           color: VetColors.muted,
