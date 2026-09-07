@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../services/api_service.dart';
 
 class InicioScreen extends StatefulWidget {
   // Callback opcional para cambiar de pestaña dentro de MainNavScreen
@@ -28,12 +29,16 @@ class _InicioScreenState extends State<InicioScreen> {
   // ============================================================
   // ESTADO
   // ============================================================
+  final ApiService _api = ApiService();
+
   bool _isLoading = true;
+  String? _error;
   String _nombre = '';
   String _apellido = '';
 
-  List<dynamic> _mascotas = [];
-  List<dynamic> _citas = [];
+  List<Map<String, dynamic>> _mascotas = [];
+  List<Map<String, dynamic>> _citas = [];
+  List<Map<String, dynamic>> _notificaciones = [];
 
   @override
   void initState() {
@@ -42,13 +47,21 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // CARGA DE DATOS (SharedPreferences del equipo)
+  // CARGA DE DATOS (backend real / Supabase, vía ApiService)
   // ============================================================
+  // Trae exactamente las mismas mascotas, citas y notificaciones que
+  // ven "Mis mascotas", "Citas" y "Notificaciones", así el Inicio nunca
+  // muestra datos inventados: si algo no está registrado en la app ni
+  // en la base de datos de Supabase, aquí tampoco aparece.
   Future<void> _cargarDatos() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
-      // Usuario actual
+    try {
+      // Nombre del usuario, guardado al iniciar sesión.
+      final prefs = await SharedPreferences.getInstance();
       final usuarioStr = prefs.getString('petcard_usuario_actual');
       if (usuarioStr != null) {
         final Map<String, dynamic> usuario = jsonDecode(usuarioStr);
@@ -56,20 +69,29 @@ class _InicioScreenState extends State<InicioScreen> {
         _apellido = usuario['Apellido'] ?? usuario['apellido'] ?? '';
       }
 
-      // Mascotas
-      final mascotasStr = prefs.getString('petcard_mascotas') ?? '[]';
-      _mascotas = jsonDecode(mascotasStr);
+      // ID_cliente real del usuario logueado (tabla "cliente").
+      final idCliente = await _api.obtenerIdClienteActual();
 
-      // Citas
-      final citasStr = prefs.getString('petcard_citas') ?? '[]';
-      _citas = jsonDecode(citasStr);
+      // Mascotas registradas por este cliente (tabla "mascota").
+      _mascotas = await _api.obtenerMascotasPorCliente(idCliente);
+
+      // Todas las citas y nos quedamos solo con las de este cliente
+      // (tabla "cita"), igual que hace la pantalla de Citas.
+      final todasLasCitas = await _api.obtenerCitasAdmin();
+      _citas = todasLasCitas
+          .where((c) => c['ID_cliente'].toString() == idCliente.toString())
+          .toList();
       _citas.sort((a, b) {
-        final fechaA = (a as Map)['fechaHoraOrden'] ?? '';
-        final fechaB = (b as Map)['fechaHoraOrden'] ?? '';
-        return fechaA.toString().compareTo(fechaB.toString());
+        final fechaA = '${a['Fecha'] ?? ''} ${a['Hora'] ?? ''}';
+        final fechaB = '${b['Fecha'] ?? ''} ${b['Hora'] ?? ''}';
+        return fechaA.compareTo(fechaB);
       });
+
+      // Notificaciones/recordatorios de este usuario (tabla "notificacion").
+      _notificaciones = await _api.obtenerMisNotificaciones();
     } catch (e) {
-      debugPrint('Error cargando datos de inicio: $e');
+      _error = e.toString().replaceFirst('Exception: ', '');
+      debugPrint('Error cargando datos de inicio: $_error');
     }
 
     if (!mounted) return;
@@ -88,8 +110,9 @@ class _InicioScreenState extends State<InicioScreen> {
 
   String get _numeroCarnet {
     // ID generado a partir de las mascotas registradas
-    final primer =
-    _mascotas.isNotEmpty ? (_mascotas.first as Map)['id'].toString() : '';
+    final primer = _mascotas.isNotEmpty
+        ? (_mascotas.first['ID_mascota'] ?? '').toString()
+        : '';
     String digitos;
     if (primer.isEmpty) {
       digitos = '000001';
@@ -103,14 +126,44 @@ class _InicioScreenState extends State<InicioScreen> {
     return 'PET-$digitos';
   }
 
-  Map? get _proximaCita {
+  Map<String, dynamic>? get _proximaCita {
     for (final cita in _citas) {
-      final estado = (cita as Map)['estado'] ?? '';
+      final estado = cita['Estado'] ?? '';
       if (estado == 'Pendiente' || estado == 'Confirmada') {
         return cita;
       }
     }
     return null;
+  }
+
+  // Cantidad de notificaciones/recordatorios sin leer del usuario.
+  int get _recordatoriosSinLeer {
+    return _notificaciones.where((n) {
+      final v = n['Leida'];
+      return !(v == true || v == 1 || v == '1');
+    }).length;
+  }
+
+  // El backend devuelve la fecha como "YYYY-MM-DD" (a veces con hora
+  // pegada); esto la muestra como "d de mes de año".
+  String _formatearFechaDesdeString(dynamic fechaRaw) {
+    if (fechaRaw == null) return '';
+    final str = fechaRaw.toString();
+    if (str.length < 10) return str;
+    final dt = DateTime.tryParse(str.substring(0, 10));
+    if (dt == null) return str;
+    const meses = [
+      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    ];
+    return '${dt.day} de ${meses[dt.month - 1]} de ${dt.year}';
+  }
+
+  // El backend devuelve la hora como "HH:mm:ss"; esto la recorta a "HH:mm".
+  String _recortarHora(dynamic horaRaw) {
+    if (horaRaw == null) return '';
+    final str = horaRaw.toString();
+    return str.length >= 5 ? str.substring(0, 5) : str;
   }
 
   // ============================================================
@@ -166,66 +219,89 @@ class _InicioScreenState extends State<InicioScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ==========================================================
-            // BANNER DE BIENVENIDA
-            // ==========================================================
-            _buildBannerBienvenida(),
+          : RefreshIndicator(
+        onRefresh: _cargarDatos,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ==========================================================
+              // AVISO DE ERROR (si no se pudieron cargar los datos reales)
+              // ==========================================================
+              if (_error != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '⚠️ No se pudieron cargar tus datos: $_error',
+                    style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
-            const SizedBox(height: 16),
+              // ==========================================================
+              // BANNER DE BIENVENIDA
+              // ==========================================================
+              _buildBannerBienvenida(),
 
-            // ==========================================================
-            // CARNET DESTACADO
-            // ==========================================================
-            _buildCarnetDestacado(),
+              const SizedBox(height: 16),
 
-            const SizedBox(height: 24),
+              // ==========================================================
+              // CARNET DESTACADO
+              // ==========================================================
+              _buildCarnetDestacado(),
 
-            // ==========================================================
-            // ACCIONES RÁPIDAS
-            // ==========================================================
-            _buildSeccionTitulo(
-              icon: Icons.flash_on,
-              titulo: 'Acciones Rápidas',
-            ),
-            const SizedBox(height: 12),
-            _buildAccionesRapidas(),
+              const SizedBox(height: 24),
 
-            const SizedBox(height: 24),
+              // ==========================================================
+              // ACCIONES RÁPIDAS
+              // ==========================================================
+              _buildSeccionTitulo(
+                icon: Icons.flash_on,
+                titulo: 'Acciones Rápidas',
+              ),
+              const SizedBox(height: 12),
+              _buildAccionesRapidas(),
 
-            // ==========================================================
-            // PRÓXIMA CITA
-            // ==========================================================
-            _buildSeccionTitulo(
-              icon: Icons.event_available,
-              titulo: 'Próxima Cita',
-            ),
-            const SizedBox(height: 12),
-            _buildProximaCita(),
+              const SizedBox(height: 24),
 
-            const SizedBox(height: 24),
+              // ==========================================================
+              // PRÓXIMA CITA
+              // ==========================================================
+              _buildSeccionTitulo(
+                icon: Icons.event_available,
+                titulo: 'Próxima Cita',
+              ),
+              const SizedBox(height: 12),
+              _buildProximaCita(),
 
-            // ==========================================================
-            // ESTADÍSTICAS
-            // ==========================================================
-            _buildSeccionTitulo(
-              icon: Icons.analytics,
-              titulo: 'Estadísticas',
-            ),
-            const SizedBox(height: 12),
-            _buildEstadisticas(),
+              const SizedBox(height: 24),
 
-            const SizedBox(height: 32),
+              // ==========================================================
+              // ESTADÍSTICAS
+              // ==========================================================
+              _buildSeccionTitulo(
+                icon: Icons.analytics,
+                titulo: 'Estadísticas',
+              ),
+              const SizedBox(height: 12),
+              _buildEstadisticas(),
 
-            // ==========================================================
-            // FOOTER
-            // ==========================================================
-            _buildFooter(),
-          ],
+              const SizedBox(height: 32),
+
+              // ==========================================================
+              // FOOTER
+              // ==========================================================
+              _buildFooter(),
+            ],
+          ),
         ),
       ),
     );
@@ -306,7 +382,7 @@ class _InicioScreenState extends State<InicioScreen> {
   // WIDGETS - CARNET DESTACADO
   // ============================================================
   Widget _buildCarnetDestacado() {
-    final mascota = _mascotas.isNotEmpty ? _mascotas.first as Map : null;
+    final mascota = _mascotas.isNotEmpty ? _mascotas.first : null;
 
     return InkWell(
       onTap: _irACarnet,
@@ -359,7 +435,7 @@ class _InicioScreenState extends State<InicioScreen> {
             const SizedBox(height: 16),
             if (mascota != null) ...[
               Text(
-                '${mascota['nombre'] ?? 'Mascota'}',
+                '${mascota['Nombre'] ?? 'Mascota'}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
@@ -368,7 +444,7 @@ class _InicioScreenState extends State<InicioScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                '${mascota['especie'] ?? ''} • ${mascota['raza'] ?? ''}',
+                '${mascota['Especie'] ?? ''} • ${mascota['Raza'] ?? ''}',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.85),
                   fontSize: 14,
@@ -487,7 +563,10 @@ class _InicioScreenState extends State<InicioScreen> {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1.25,
+      // Antes 1.25: con etiquetas de 2 líneas como "Carnet de Vacunas" o
+      // "Gestión de Servicios" la celda quedaba demasiado baja y el texto
+      // se salía por debajo (overflow). 1.05 da más alto a cada celda.
+      childAspectRatio: 1.05,
       children: acciones
           .map(
             (accion) => _buildAccionCard(accion),
@@ -505,34 +584,41 @@ class _InicioScreenState extends State<InicioScreen> {
         onTap: accion.onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.grey[200]!),
           ),
+          // mainAxisSize.min + Flexible en el texto evita que el
+          // contenido pida más alto de lo que la celda del grid tiene
+          // disponible, que era la causa del "BOTTOM OVERFLOWED".
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: accion.color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(accion.icon, color: accion.color, size: 22),
+                child: Icon(accion.icon, color: accion.color, size: 20),
               ),
-              const SizedBox(height: 10),
-              Text(
-                accion.label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A1A2E),
+              const SizedBox(height: 8),
+              Flexible(
+                child: Text(
+                  accion.label,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A1A2E),
+                    height: 1.15,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -618,7 +704,7 @@ class _InicioScreenState extends State<InicioScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${cita['servicio'] ?? 'Cita'}',
+                  '${cita['Nombre_servicio'] ?? 'Cita'}',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -637,16 +723,17 @@ class _InicioScreenState extends State<InicioScreen> {
                         ),
                       ),
                       TextSpan(
-                        text: '  ${cita['fecha'] ?? ''}  ${cita['hora'] ?? ''}',
+                        text:
+                        '  ${_formatearFechaDesdeString(cita['Fecha'])}  ${_recortarHora(cita['Hora'])}',
                         style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                       ),
                     ],
                   ),
                 ),
-                if ((cita['mascota'] ?? '').toString().isNotEmpty) ...[
+                if ((cita['Nombre_mascota'] ?? '').toString().isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    '🐾 ${cita['mascota']}',
+                    '🐾 ${cita['Nombre_mascota']}',
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   ),
                 ],
@@ -666,7 +753,7 @@ class _InicioScreenState extends State<InicioScreen> {
     final citasActivas = _citas
         .where(
           (c) =>
-      (c['estado'] == 'Pendiente' || c['estado'] == 'Confirmada'),
+      (c['Estado'] == 'Pendiente' || c['Estado'] == 'Confirmada'),
     )
         .length;
 
@@ -702,7 +789,7 @@ class _InicioScreenState extends State<InicioScreen> {
           ),
           _buildEstadisticaRow(
             label: 'Recordatorios',
-            value: '0',
+            value: '$_recordatoriosSinLeer',
             icon: Icons.notifications,
           ),
         ],

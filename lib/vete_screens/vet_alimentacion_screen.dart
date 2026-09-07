@@ -415,6 +415,10 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
                     value: claveSeleccionada,
+                    // Sin esto, el DropdownButton no limita el ancho de su
+                    // contenido al espacio disponible y el texto largo del
+                    // hint/los items se sale por la derecha (overflow).
+                    isExpanded: true,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF9FAFB),
@@ -424,11 +428,16 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
                         borderSide: const BorderSide(color: VetColors.border),
                       ),
                     ),
-                    hint: const Text('Selecciona una mascota que hayas atendido'),
+                    hint: const Text(
+                      'Selecciona una mascota que hayas atendido',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     items: _opcionesAtendidas
                         .map((op) => DropdownMenuItem(
                       value: '${op.idMascota}-${op.idServicio}',
                       child: Text('${op.nombreMascota} — ${op.nombreServicio}',
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ))
                         .toList(),
