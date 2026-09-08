@@ -270,18 +270,25 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
                           Text(
                             _mascota?['nombre'] ?? 'Benyi',
                             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 6),
+                          // FIX: RIGHT OVERFLOWED BY 22 PIXELS
+                          // Se envuelve cada chip en Flexible para que se
+                          // encoja (con ellipsis) en vez de desbordar la fila
+                          // cuando el texto de raza/edad es largo.
                           Row(
                             children: [
-                              _buildChip('${_mascota?['raza'] ?? 'Frespuder'}'),
+                              Flexible(child: _buildChip('${_mascota?['raza'] ?? 'Frespuder'}')),
                               const SizedBox(width: 8),
-                              _buildChip('${_mascota?['edad'] ?? '10 años'}'),
+                              Flexible(child: _buildChip('${_mascota?['edad'] ?? '10 años'}')),
                             ],
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(color: kSuccessLight, borderRadius: BorderRadius.circular(100)),
@@ -310,28 +317,7 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Botón Agregar
-              Container(
-                width: double.infinity,
-                height: 58,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(color: kBlue.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6)),
-                  ],
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: _mostrarDialogoNuevoServicio,
-                  icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 24),
-                  label: const Text('Agregar Nuevo Servicio', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kBlue,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 40),
+
             ],
           ),
         ),
@@ -339,11 +325,19 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     );
   }
 
+  // FIX: RIGHT OVERFLOWED BY 22 PIXELS
+  // Se agrega maxLines + overflow: ellipsis para que el chip trunque el
+  // texto en vez de forzar el ancho de la fila cuando el label es largo.
   Widget _buildChip(String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
-      child: Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 

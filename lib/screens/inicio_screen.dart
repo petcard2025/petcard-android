@@ -3,8 +3,7 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import '../services/api_service.dart';
 
 class InicioScreen extends StatefulWidget {
   // Callback opcional para cambiar de pestaña dentro de MainNavScreen
@@ -26,14 +25,21 @@ class _InicioScreenState extends State<InicioScreen> {
   static const Color kBlueDark = Color(0xFF1D4ED8);
 
   // ============================================================
-  // ESTADO
+  // API Y ESTADO
   // ============================================================
-  bool _isLoading = true;
-  String _nombre = '';
-  String _apellido = '';
+  // FIX: antes se leía de SharedPreferences ('petcard_mascotas' /
+  // 'petcard_citas'), claves que ningún otro archivo del proyecto
+  // llega a escribir. Ahora se usa ApiService, la misma fuente real
+  // (backend Node/Express + MySQL) que ya usan MisMascotasScreen y
+  // CitasScreen.
+  final ApiService _api = ApiService();
 
-  List<dynamic> _mascotas = [];
-  List<dynamic> _citas = [];
+  bool _isLoading = true;
+  String? _error;
+  String _nombre = '';
+
+  List<Map<String, dynamic>> _mascotas = [];
+  List<Map<String, dynamic>> _citas = [];
 
   @override
   void initState() {
@@ -42,34 +48,43 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // CARGA DE DATOS (SharedPreferences del equipo)
+  // CARGA DE DATOS (desde la API / base de datos real)
   // ============================================================
   Future<void> _cargarDatos() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Usuario actual
-      final usuarioStr = prefs.getString('petcard_usuario_actual');
-      if (usuarioStr != null) {
-        final Map<String, dynamic> usuario = jsonDecode(usuarioStr);
-        _nombre = usuario['Nombre'] ?? usuario['nombre'] ?? '';
-        _apellido = usuario['Apellido'] ?? usuario['apellido'] ?? '';
+      // 1. Usuario logueado (se lee directo del JWT, sin llamada extra)
+      final miUsuario = await _api.obtenerMiUsuario();
+      if (miUsuario == null) {
+        throw Exception('No hay sesión activa. Vuelve a iniciar sesión.');
       }
+      _nombre = miUsuario['Nombre'] ?? miUsuario['nombre'] ?? '';
 
-      // Mascotas
-      final mascotasStr = prefs.getString('petcard_mascotas') ?? '[]';
-      _mascotas = jsonDecode(mascotasStr);
+      // 2. ID_cliente del usuario logueado (se crea automáticamente si
+      //    todavía no existe, igual que en Mis Mascotas / Citas).
+      final idCliente = await _api.obtenerIdClienteActual();
 
-      // Citas
-      final citasStr = prefs.getString('petcard_citas') ?? '[]';
-      _citas = jsonDecode(citasStr);
+      // 3. Mascotas reales del cliente
+      _mascotas = await _api.obtenerMascotasPorCliente(idCliente);
+
+      // 4. Citas reales del cliente. El backend no filtra por cliente en
+      //    este endpoint, así que se filtra aquí (igual que en CitasScreen).
+      final todasLasCitas = await _api.obtenerCitasAdmin();
+      _citas = todasLasCitas
+          .where((c) => c['ID_cliente'].toString() == idCliente.toString())
+          .toList();
       _citas.sort((a, b) {
-        final fechaA = (a as Map)['fechaHoraOrden'] ?? '';
-        final fechaB = (b as Map)['fechaHoraOrden'] ?? '';
-        return fechaA.toString().compareTo(fechaB.toString());
+        final fechaA = '${a['Fecha'] ?? ''} ${a['Hora'] ?? ''}';
+        final fechaB = '${b['Fecha'] ?? ''} ${b['Hora'] ?? ''}';
+        return fechaA.compareTo(fechaB);
       });
     } catch (e) {
-      debugPrint('Error cargando datos de inicio: $e');
+      _error = e.toString().replaceFirst('Exception: ', '');
+      debugPrint('Error cargando datos de inicio: $_error');
     }
 
     if (!mounted) return;
@@ -87,9 +102,10 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   String get _numeroCarnet {
-    // ID generado a partir de las mascotas registradas
+    // ID generado a partir de las mascotas registradas.
+    // FIX: la clave real que devuelve la API es 'ID_mascota', no 'id'.
     final primer =
-    _mascotas.isNotEmpty ? (_mascotas.first as Map)['id'].toString() : '';
+    _mascotas.isNotEmpty ? _mascotas.first['ID_mascota'].toString() : '';
     String digitos;
     if (primer.isEmpty) {
       digitos = '000001';
@@ -103,9 +119,10 @@ class _InicioScreenState extends State<InicioScreen> {
     return 'PET-$digitos';
   }
 
-  Map? get _proximaCita {
+  Map<String, dynamic>? get _proximaCita {
+    // FIX: el campo real es 'Estado' (mayúscula inicial), no 'estado'.
     for (final cita in _citas) {
-      final estado = (cita as Map)['estado'] ?? '';
+      final estado = cita['Estado'] ?? '';
       if (estado == 'Pendiente' || estado == 'Confirmada') {
         return cita;
       }
@@ -166,65 +183,114 @@ class _InicioScreenState extends State<InicioScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+          : _error != null
+          ? _buildErrorState()
+          : RefreshIndicator(
+        onRefresh: _cargarDatos,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ==========================================================
+              // BANNER DE BIENVENIDA
+              // ==========================================================
+              _buildBannerBienvenida(),
+
+              const SizedBox(height: 16),
+
+              // ==========================================================
+              // CARNET DESTACADO
+              // ==========================================================
+              _buildCarnetDestacado(),
+
+              const SizedBox(height: 24),
+
+              // ==========================================================
+              // ACCIONES RÁPIDAS
+              // ==========================================================
+              _buildSeccionTitulo(
+                icon: Icons.flash_on,
+                titulo: 'Acciones Rápidas',
+              ),
+              const SizedBox(height: 12),
+              _buildAccionesRapidas(),
+
+              const SizedBox(height: 24),
+
+              // ==========================================================
+              // PRÓXIMA CITA
+              // ==========================================================
+              _buildSeccionTitulo(
+                icon: Icons.event_available,
+                titulo: 'Próxima Cita',
+              ),
+              const SizedBox(height: 12),
+              _buildProximaCita(),
+
+              const SizedBox(height: 24),
+
+              // ==========================================================
+              // ESTADÍSTICAS
+              // ==========================================================
+              _buildSeccionTitulo(
+                icon: Icons.analytics,
+                titulo: 'Estadísticas',
+              ),
+              const SizedBox(height: 12),
+              _buildEstadisticas(),
+
+              const SizedBox(height: 32),
+
+              // ==========================================================
+              // FOOTER
+              // ==========================================================
+              _buildFooter(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // WIDGETS - ESTADO DE ERROR (sesión caída, sin conexión, etc.)
+  // ============================================================
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // ==========================================================
-            // BANNER DE BIENVENIDA
-            // ==========================================================
-            _buildBannerBienvenida(),
-
+            Icon(Icons.wifi_off, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Text(
+              'No se pudieron cargar tus datos',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _error ?? '',
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
-
-            // ==========================================================
-            // CARNET DESTACADO
-            // ==========================================================
-            _buildCarnetDestacado(),
-
-            const SizedBox(height: 24),
-
-            // ==========================================================
-            // ACCIONES RÁPIDAS
-            // ==========================================================
-            _buildSeccionTitulo(
-              icon: Icons.flash_on,
-              titulo: 'Acciones Rápidas',
+            ElevatedButton.icon(
+              onPressed: _cargarDatos,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Reintentar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kBlue,
+                foregroundColor: Colors.white,
+              ),
             ),
-            const SizedBox(height: 12),
-            _buildAccionesRapidas(),
-
-            const SizedBox(height: 24),
-
-            // ==========================================================
-            // PRÓXIMA CITA
-            // ==========================================================
-            _buildSeccionTitulo(
-              icon: Icons.event_available,
-              titulo: 'Próxima Cita',
-            ),
-            const SizedBox(height: 12),
-            _buildProximaCita(),
-
-            const SizedBox(height: 24),
-
-            // ==========================================================
-            // ESTADÍSTICAS
-            // ==========================================================
-            _buildSeccionTitulo(
-              icon: Icons.analytics,
-              titulo: 'Estadísticas',
-            ),
-            const SizedBox(height: 12),
-            _buildEstadisticas(),
-
-            const SizedBox(height: 32),
-
-            // ==========================================================
-            // FOOTER
-            // ==========================================================
-            _buildFooter(),
           ],
         ),
       ),
@@ -275,12 +341,15 @@ class _InicioScreenState extends State<InicioScreen> {
                         ),
                       ),
                       Text(
-                        _nombre.isNotEmpty ? '$_nombre $_apellido' : 'Bienvenido/a',
+                        // FIX: el backend solo maneja 'Nombre' (nombre
+                        // completo), no existe un campo 'Apellido' aparte.
+                        _nombre.isNotEmpty ? _nombre : 'Bienvenido/a',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -306,7 +375,7 @@ class _InicioScreenState extends State<InicioScreen> {
   // WIDGETS - CARNET DESTACADO
   // ============================================================
   Widget _buildCarnetDestacado() {
-    final mascota = _mascotas.isNotEmpty ? _mascotas.first as Map : null;
+    final mascota = _mascotas.isNotEmpty ? _mascotas.first : null;
 
     return InkWell(
       onTap: _irACarnet,
@@ -347,7 +416,7 @@ class _InicioScreenState extends State<InicioScreen> {
                   'CARNET PetCard',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 19,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
                   ),
@@ -358,21 +427,27 @@ class _InicioScreenState extends State<InicioScreen> {
             ),
             const SizedBox(height: 16),
             if (mascota != null) ...[
+              // FIX: campos reales de la API son 'Nombre', 'Especie' y
+              // 'Raza' (con mayúscula inicial), no 'nombre'/'especie'/'raza'.
               Text(
-                '${mascota['nombre'] ?? 'Mascota'}',
+                '${mascota['Nombre'] ?? 'Mascota'}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
               Text(
-                '${mascota['especie'] ?? ''} • ${mascota['raza'] ?? ''}',
+                '${mascota['Especie'] ?? ''} • ${mascota['Raza'] ?? ''}',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.85),
                   fontSize: 14,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ] else ...[
               const Text(
@@ -481,18 +556,24 @@ class _InicioScreenState extends State<InicioScreen> {
       ),
     ];
 
-    return GridView.count(
-      crossAxisCount: 2,
+    // FIX: BOTTOM OVERFLOWED BY 3.6 PIXELS
+    // Se reemplaza GridView.count (con childAspectRatio) por
+    // GridView.builder + SliverGridDelegateWithFixedCrossAxisCount usando
+    // mainAxisExtent. Esto da una altura FIJA y con margen suficiente para
+    // que quepan el ícono + una etiqueta de hasta 2 líneas (ej. "Carnet de
+    // Vacunas"), sin depender de un aspect ratio calculado que puede
+    // quedarse corto según el ancho de pantalla.
+    return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.25,
-      children: acciones
-          .map(
-            (accion) => _buildAccionCard(accion),
-      )
-          .toList(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        mainAxisExtent: 118, // altura fija de cada tarjeta
+      ),
+      itemCount: acciones.length,
+      itemBuilder: (context, index) => _buildAccionCard(acciones[index]),
     );
   }
 
@@ -584,6 +665,9 @@ class _InicioScreenState extends State<InicioScreen> {
       );
     }
 
+    // FIX: los campos reales que devuelve la API de citas son
+    // 'Nombre_servicio', 'Nombre_mascota', 'Fecha' y 'Hora'
+    // (ver citas_screen.dart _buildCitaCard), no 'servicio'/'mascota'.
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -618,12 +702,14 @@ class _InicioScreenState extends State<InicioScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${cita['servicio'] ?? 'Cita'}',
+                  '${cita['Nombre_servicio'] ?? 'Cita'}',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1A1A2E),
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text.rich(
@@ -637,16 +723,16 @@ class _InicioScreenState extends State<InicioScreen> {
                         ),
                       ),
                       TextSpan(
-                        text: '  ${cita['fecha'] ?? ''}  ${cita['hora'] ?? ''}',
+                        text: '  ${cita['Fecha'] ?? ''}  ${cita['Hora'] ?? ''}',
                         style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                       ),
                     ],
                   ),
                 ),
-                if ((cita['mascota'] ?? '').toString().isNotEmpty) ...[
+                if ((cita['Nombre_mascota'] ?? '').toString().isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    '🐾 ${cita['mascota']}',
+                    '🐾 ${cita['Nombre_mascota']}',
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   ),
                 ],
@@ -663,10 +749,11 @@ class _InicioScreenState extends State<InicioScreen> {
   // WIDGETS - ESTADÍSTICAS
   // ============================================================
   Widget _buildEstadisticas() {
+    // FIX: campo real es 'Estado' (mayúscula inicial).
     final citasActivas = _citas
         .where(
           (c) =>
-      (c['estado'] == 'Pendiente' || c['estado'] == 'Confirmada'),
+      (c['Estado'] == 'Pendiente' || c['Estado'] == 'Confirmada'),
     )
         .length;
 
