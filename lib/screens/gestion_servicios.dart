@@ -32,7 +32,7 @@ class GestionServiciosScreen extends StatefulWidget {
 }
 
 class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
-  static const Color kBlue = Color(0xFF3B82F6);
+  static const Color kBlue = Color(0xFF2563EB);
   static const Color kBlueLight = Color(0xFFDBEAFE);
   static const Color kSuccess = Color(0xFF059669);
   static const Color kSuccessLight = Color(0xFFD1FAE5);
@@ -300,7 +300,7 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 0.82,
+                  childAspectRatio: 0.70,
                 ),
                 itemCount: _servicios.length,
                 itemBuilder: (context, index) {
@@ -364,12 +364,12 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(color: service.iconBgColor, borderRadius: BorderRadius.circular(16)),
-                child: Icon(service.icon, color: service.iconColor, size: 26),
+                child: Icon(service.icon, color: service.iconColor, size: 24),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               Text(
                 service.title,
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
@@ -380,6 +380,8 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
               Text(
                 service.subtitle,
                 style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w400),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               const Spacer(),
               Container(

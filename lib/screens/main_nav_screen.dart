@@ -11,6 +11,8 @@ import 'citas_screen.dart';
 import 'mis_mascotas_screen.dart';
 import 'alimentacion_screen.dart';
 import 'perfil_screen.dart';
+import 'gestion_servicios.dart';
+import 'carnet_digital.dart';
 
 class MainNavScreen extends StatefulWidget {
   const MainNavScreen({super.key});
@@ -20,7 +22,7 @@ class MainNavScreen extends StatefulWidget {
 }
 
 class _MainNavScreenState extends State<MainNavScreen> {
-  static const Color kBlue = Color(0xFF3B82F6);
+  static const Color kBlue = Color(0xFF2563EB);
 
   // Índice de la pestaña activa. 0 = Inicio (pantalla principal
   // que se muestra justo después de iniciar sesión)
@@ -30,12 +32,14 @@ class _MainNavScreenState extends State<MainNavScreen> {
   // rápidos de Inicio) sin perder la barra de navegación inferior.
   void _cambiarTab(int index) => setState(() => _indiceActual = index);
 
-  // Las 5 vistas principales de la app
+  // Las 7 vistas principales de la app
   late final List<Widget> _vistas = [
     InicioScreen(onIrATab: _cambiarTab),
     const CitasScreen(),
     const MisMascotasScreen(),
     const AlimentacionScreen(),
+    const GestionServiciosScreen(),
+    const CarnetDigitalScreen(),
     const PerfilScreen(),
   ];
 
@@ -53,6 +57,9 @@ class _MainNavScreenState extends State<MainNavScreen> {
         selectedItemColor: kBlue,
         unselectedItemColor: Colors.black45,
         type: BottomNavigationBarType.fixed,
+        selectedFontSize: 10,
+        unselectedFontSize: 10,
+        iconSize: 22,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
@@ -67,12 +74,22 @@ class _MainNavScreenState extends State<MainNavScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.pets_outlined),
             activeIcon: Icon(Icons.pets),
-            label: 'Mis mascotas',
+            label: 'Mascotas',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.restaurant_outlined),
             activeIcon: Icon(Icons.restaurant),
             label: 'Alimentación',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment_outlined),
+            activeIcon: Icon(Icons.assignment),
+            label: 'Servicios',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.medical_services_outlined),
+            activeIcon: Icon(Icons.medical_services),
+            label: 'Vacunas',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

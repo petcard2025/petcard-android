@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:petcard/theme/app_theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:petcard/screens/prueba_screen.dart';
 import 'package:petcard/screens/perfil_screen.dart';
@@ -50,11 +51,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'PetCard',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Segoe UI',
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.themeData,
       initialRoute: '/landing',
       routes: {
         '/login': (context) => const LoginScreen(),

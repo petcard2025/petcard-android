@@ -95,7 +95,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.photo_camera, color: Color(0xFF7C3AED)),
+                leading: const Icon(Icons.photo_camera, color: Color(0xFF2563EB)),
                 title: const Text('Tomar foto'),
                 onTap: () {
                   Navigator.pop(context);
@@ -103,7 +103,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library, color: Color(0xFF7C3AED)),
+                leading: const Icon(Icons.photo_library, color: Color(0xFF2563EB)),
                 title: const Text('Elegir de la galería'),
                 onTap: () {
                   Navigator.pop(context);
@@ -434,7 +434,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF7C3AED),
+        backgroundColor: const Color(0xFF2563EB),
         elevation: 0,
         title: Row(
           children: [
@@ -497,13 +497,13 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED).withOpacity(0.1),
+                      color: const Color(0xFF2563EB).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '${_mascotas.length} mascotas',
                       style: const TextStyle(
-                        color: Color(0xFF7C3AED),
+                        color: Color(0xFF2563EB),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -553,11 +553,11 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                         _limpiarFormulario();
                       });
                     },
-                    icon: const Icon(Icons.add, color: Color(0xFF7C3AED)),
+                    icon: const Icon(Icons.add, color: Color(0xFF2563EB)),
                     label: const Text(
                       'Agregar nueva mascota',
                       style: TextStyle(
-                        color: Color(0xFF7C3AED),
+                        color: Color(0xFF2563EB),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -605,10 +605,10 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
           const SizedBox(height: 10),
           TextButton.icon(
             onPressed: _cargarMascotas,
-            icon: const Icon(Icons.refresh, size: 16, color: Color(0xFF7C3AED)),
+            icon: const Icon(Icons.refresh, size: 16, color: Color(0xFF2563EB)),
             label: const Text(
               'Reintentar',
-              style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.w600),
+              style: TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -644,7 +644,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                   Icon(
                     _editando ? Icons.edit : Icons.pets,
                     size: 18,
-                    color: const Color(0xFF7C3AED),
+                    color: const Color(0xFF2563EB),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -729,7 +729,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                   ? null
                   : (_editando ? _actualizarMascota : _guardarMascota),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7C3AED),
+                backgroundColor: const Color(0xFF2563EB),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -848,9 +848,9 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
             height: 96,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF7C3AED).withOpacity(0.08),
+              color: const Color(0xFF2563EB).withOpacity(0.08),
               border: Border.all(
-                color: const Color(0xFF7C3AED).withOpacity(0.3),
+                color: const Color(0xFF2563EB).withOpacity(0.3),
                 width: 1.5,
               ),
             ),
@@ -862,7 +862,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: const BoxDecoration(
-                color: Color(0xFF7C3AED),
+                color: Color(0xFF2563EB),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -911,7 +911,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 2),
+              borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -951,7 +951,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFF7C3AED).withOpacity(0.1),
+              color: const Color(0xFF2563EB).withOpacity(0.1),
               borderRadius: BorderRadius.circular(14),
             ),
             child: (mascota['foto'] != null && mascota['foto'].toString().isNotEmpty)
@@ -964,14 +964,14 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => Icon(
                   _getIconForEspecie(mascota['Especie'] ?? ''),
-                  color: const Color(0xFF7C3AED),
+                  color: const Color(0xFF2563EB),
                   size: 28,
                 ),
               ),
             )
                 : Icon(
               _getIconForEspecie(mascota['Especie'] ?? ''),
-              color: const Color(0xFF7C3AED),
+              color: const Color(0xFF2563EB),
               size: 28,
             ),
           ),
