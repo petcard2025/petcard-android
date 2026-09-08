@@ -8,8 +8,9 @@ class ApiService {
   // Lista de IPs conocidas de tu laptop (la más reciente primero).
   // Al iniciar la app, se prueba cada una y se usa la primera que responda.
   static const List<String> _ipsConocidas = [
-    '192.168.137.165', // Hotspot móvil (hoy)
-    '192.168.80.23',   // WiFi de casa (ayer)
+    '172.20.10.2',      // Red actual (más reciente)
+    '192.168.137.165', // Hotspot móvil
+    '192.168.80.23',   // WiFi de casa
   ];
 
   // IP que realmente se usará. Empieza con la primera de la lista y se
