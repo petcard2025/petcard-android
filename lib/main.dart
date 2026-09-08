@@ -15,6 +15,7 @@ import 'package:petcard/screens/landing_screen.dart';
 import 'package:petcard/screens/gestion_servicios.dart';
 import 'package:petcard/screens/carnet_digital.dart';
 import 'package:petcard/screens/notificaciones_screen.dart';
+import 'package:petcard/services/api_service.dart';
 
 // ============================================================
 // IMPORTS DE ADMIN
@@ -39,6 +40,10 @@ void main() async {
 
   // Inicializa el idioma español para fechas (usado en las pantallas de veterinario)
   await initializeDateFormatting('es', null);
+
+  // Detecta automáticamente cuál de las IPs conocidas del backend
+  // responde ahora mismo (evita tener que recompilar al cambiar de red).
+  await ApiService.resolverIp();
 
   runApp(const MyApp());
 }

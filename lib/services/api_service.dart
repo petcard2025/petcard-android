@@ -5,18 +5,50 @@ import 'package:http/io_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  // Cambia esto según tu configuración
-  static const String baseUrl = 'https://192.168.80.23:3001/api';
+  // Lista de IPs conocidas de tu laptop (la más reciente primero).
+  // Al iniciar la app, se prueba cada una y se usa la primera que responda.
+  static const List<String> _ipsConocidas = [
+    '192.168.137.165', // Hotspot móvil (hoy)
+    '192.168.80.23',   // WiFi de casa (ayer)
+  ];
+
+  // IP que realmente se usará. Empieza con la primera de la lista y se
+  // actualiza sola si resulta que otra es la que responde (ver resolverIp).
+  static String _ipActual = _ipsConocidas.first;
+
+  static String get baseUrl => 'https://$_ipActual:3001/api';
+
+  /// Prueba cada IP conocida (con un timeout corto) y deja seleccionada
+  /// la primera que responda. Llamar una vez al iniciar la app, antes
+  /// de mostrar la pantalla de login.
+  static Future<void> resolverIp() async {
+    for (final ip in _ipsConocidas) {
+      try {
+        final cliente = _clienteHttp();
+        final respuesta = await cliente
+            .get(Uri.parse('https://$ip:3001/api/servicios'))
+            .timeout(const Duration(seconds: 2));
+        if (respuesta.statusCode >= 200 && respuesta.statusCode < 500) {
+          _ipActual = ip;
+          return;
+        }
+      } catch (_) {
+        // Esta IP no respondió, se prueba la siguiente.
+      }
+    }
+    // Si ninguna respondió, se deja la primera por defecto
+    // (el error real se mostrará cuando el usuario intente iniciar sesión).
+  }
 
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
   static const _usuarioKey = 'usuario_actual';
 
-  // Cliente HTTP que acepta certificado autofirmado
+  // Cliente HTTP que acepta certificado autofirmado de cualquier IP conocida
   static http.Client _clienteHttp() {
     final httpClient = HttpClient()
       ..badCertificateCallback = (cert, host, port) {
-        return host == '192.168.80.23';
+        return _ipsConocidas.contains(host);
       };
     return IOClient(httpClient);
   }
