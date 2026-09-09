@@ -49,14 +49,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registro exitoso. Revisa tu correo para confirmar tu cuenta.')),
+          const SnackBar(content: Text('✅ Registro exitoso. Ya puedes iniciar sesión.')),
         );
+        // Limpiar campos después del registro
+        _nameController.clear();
+        _emailController.clear();
+        _phoneController.clear();
+        _passwordController.clear();
+        _confirmPasswordController.clear();
         Navigator.pushReplacementNamed(context, '/login');
       }
     } on AuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
+          SnackBar(content: Text('❌ ${e.message}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Error inesperado: $e')),
         );
       }
     } finally {

@@ -13,7 +13,10 @@ import 'package:petcard/screens/inicio_screen.dart';
 import 'package:petcard/screens/alimentacion_screen.dart';
 import 'package:petcard/screens/landing_screen.dart';
 import 'package:petcard/screens/gestion_servicios.dart';
+// ELIMINAR ESTA IMPORTACIÓN - Ya no se usa como ruta independiente
+// import 'package:petcard/screens/carnet_digital.dart';
 import 'package:petcard/screens/notificaciones_screen.dart';
+import 'package:petcard/services/api_service.dart';
 
 // ============================================================
 // IMPORTS DE ADMIN
@@ -35,8 +38,10 @@ void main() async {
     publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YWFuZWZyYnVyc2N0eW9zYmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMTQwNjIsImV4cCI6MjEwMjU5MDA2Mn0.c5p9ddkHTiLu5yK2VvezVxxUFvoPk16c5yzn7P_ELZc',
   );
 
-  // Inicializa el idioma español para fechas
   await initializeDateFormatting('es', null);
+
+  // 🔥 IMPORTANTE: Detectar la IP del backend automáticamente
+  await ApiService.resolverIp();
 
   runApp(const MyApp());
 }

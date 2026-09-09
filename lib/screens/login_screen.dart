@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import 'register_screen.dart';
+import '../vete_screens/vet_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,7 +22,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   static const Color kBlue = Color(0xFF3B82F6);
   static const Color kBlueDark = Color(0xFF2563EB);
-  static const Color kBg = Color(0xFFF8F9FA);
 
   @override
   void dispose() {
@@ -35,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final respuesta = await _authService.signIn(
+      await _authService.signIn(
         email: _emailController.text,
         password: _passwordController.text,
       );
@@ -45,11 +46,36 @@ class _LoginScreenState extends State<LoginScreen> {
           const SnackBar(content: Text('Inicio de sesión exitoso')),
         );
 
-        final usuario = respuesta['usuario'];
-        final rol = (usuario?['Rol'] ?? 'cliente').toString().toLowerCase();
+        final usuario = _authService.usuarioActual;
+        final rol = (usuario?['Rol'] ?? usuario?['rol'] ?? '')
+            .toString()
+            .toLowerCase();
+        final nombre = usuario?['Nombre'] ?? 'Veterinario';
+        final idUsuario = usuario?['ID_usuario'];
 
         if (rol == 'admin' || rol == 'administrador') {
           Navigator.pushReplacementNamed(context, '/admin');
+        } else if (rol == 'veterinario') {
+          String? idVeterinarioReal;
+          try {
+            final veterinarios = await ApiService().obtenerVeterinarios();
+            final match = veterinarios.firstWhere(
+                  (v) => v['ID_usuario']?.toString() == idUsuario?.toString(),
+              orElse: () => <String, dynamic>{},
+            );
+            idVeterinarioReal = match['ID_veterinario']?.toString();
+          } catch (_) {}
+
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VetDashboardScreen(
+                nombreVeterinario: nombre,
+                idVeterinario: idVeterinarioReal,
+              ),
+            ),
+          );
         } else {
           Navigator.pushReplacementNamed(context, '/home');
         }
@@ -58,12 +84,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.message)),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error inesperado: $e')),
         );
       }
     } finally {
@@ -180,12 +200,12 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBg,
+      backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header azul curveado
+            // Header azul con curva inferior
             ClipPath(
               clipper: _BottomCurveClipper(),
               child: Container(
@@ -256,20 +276,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         hintText: 'correo@ejemplo.com',
                         prefixIcon: const Icon(Icons.mail_outline, color: kBlue),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: const Color(0xFFF3F4F6),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
+                          borderSide: BorderSide.none,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: kBlue, width: 2),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -311,20 +323,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: const Color(0xFFF3F4F6),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
+                          borderSide: BorderSide.none,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: kBlue, width: 2),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -514,7 +518,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// Clipper para la curva del header azul
+// Clipper para la curva inferior del header azul
 class _BottomCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

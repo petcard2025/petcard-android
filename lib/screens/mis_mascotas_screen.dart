@@ -1042,6 +1042,19 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
   Widget _buildMascotaCard(Map<String, dynamic> mascota) {
     final edad = _calcularEdadDesdeFecha(mascota['Fecha_nacimiento']);
 
+    // Convertir peso correctamente (manejar String o double)
+    double pesoFinal = 0.0;
+    final pesoRaw = mascota['Peso'];
+    if (pesoRaw != null) {
+      if (pesoRaw is double) {
+        pesoFinal = pesoRaw;
+      } else if (pesoRaw is int) {
+        pesoFinal = pesoRaw.toDouble();
+      } else if (pesoRaw is String) {
+        pesoFinal = double.tryParse(pesoRaw.replaceAll(',', '.')) ?? 0.0;
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -1134,7 +1147,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                       especie: mascota['Especie'] ?? '',
                       raza: mascota['Raza'] ?? '',
                       sexo: mascota['Sexo'] ?? '',
-                      peso: (mascota['Peso'] ?? 0).toDouble(),
+                      peso: pesoFinal,
                       fechaNacimiento: mascota['Fecha_nacimiento'],
                     ),
                   ),

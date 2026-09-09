@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'carnet_digital.dart';
 
 class InicioScreen extends StatefulWidget {
   // Callback opcional para cambiar de pestaña dentro de MainNavScreen
@@ -27,11 +28,6 @@ class _InicioScreenState extends State<InicioScreen> {
   // ============================================================
   // API Y ESTADO
   // ============================================================
-  // FIX: antes se leía de SharedPreferences ('petcard_mascotas' /
-  // 'petcard_citas'), claves que ningún otro archivo del proyecto
-  // llega a escribir. Ahora se usa ApiService, la misma fuente real
-  // (backend Node/Express + MySQL) que ya usan MisMascotasScreen y
-  // CitasScreen.
   final ApiService _api = ApiService();
 
   bool _isLoading = true;
@@ -64,15 +60,13 @@ class _InicioScreenState extends State<InicioScreen> {
       }
       _nombre = miUsuario['Nombre'] ?? miUsuario['nombre'] ?? '';
 
-      // 2. ID_cliente del usuario logueado (se crea automáticamente si
-      //    todavía no existe, igual que en Mis Mascotas / Citas).
+      // 2. ID_cliente del usuario logueado
       final idCliente = await _api.obtenerIdClienteActual();
 
       // 3. Mascotas reales del cliente
       _mascotas = await _api.obtenerMascotasPorCliente(idCliente);
 
-      // 4. Citas reales del cliente. El backend no filtra por cliente en
-      //    este endpoint, así que se filtra aquí (igual que en CitasScreen).
+      // 4. Citas reales del cliente
       final todasLasCitas = await _api.obtenerCitasAdmin();
       _citas = todasLasCitas
           .where((c) => c['ID_cliente'].toString() == idCliente.toString())
@@ -102,8 +96,6 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   String get _numeroCarnet {
-    // ID generado a partir de las mascotas registradas.
-    // FIX: la clave real que devuelve la API es 'ID_mascota', no 'id'.
     final primer =
     _mascotas.isNotEmpty ? _mascotas.first['ID_mascota'].toString() : '';
     String digitos;
@@ -111,7 +103,6 @@ class _InicioScreenState extends State<InicioScreen> {
       digitos = '000001';
     } else {
       final relleno = primer.padLeft(6, '0');
-      // Tomamos siempre los últimos 6 caracteres del string ya rellenado
       digitos = relleno.length > 6
           ? relleno.substring(relleno.length - 6)
           : relleno;
@@ -120,7 +111,6 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   Map<String, dynamic>? get _proximaCita {
-    // FIX: el campo real es 'Estado' (mayúscula inicial), no 'estado'.
     for (final cita in _citas) {
       final estado = cita['Estado'] ?? '';
       if (estado == 'Pendiente' || estado == 'Confirmada') {
@@ -131,24 +121,64 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // NAVEGACIÓN (rutas usadas por el equipo)
+  // NAVEGACIÓN
   // ============================================================
-  // Si estamos dentro de MainNavScreen (widget.onIrATab != null) cambiamos
-  // de pestaña para no perder la barra de navegación inferior. Si la
-  // pantalla se usa de forma independiente, caemos a la ruta con nombre.
   void _irAMascotas() => widget.onIrATab != null
       ? widget.onIrATab!(2)
       : Navigator.pushNamed(context, '/mis-mascotas');
+
   void _irACitas() => widget.onIrATab != null
       ? widget.onIrATab!(1)
       : Navigator.pushNamed(context, '/citas');
-  void _irACarnet() => Navigator.pushNamed(context, '/carnet');
+
   void _irAGestionServicios() =>
       Navigator.pushNamed(context, '/gestion-servicios');
+
   void _irANotificaciones() => Navigator.pushNamed(context, '/notificaciones');
+
   void _irAPerfil() => widget.onIrATab != null
       ? widget.onIrATab!(4)
       : Navigator.pushNamed(context, '/perfil');
+
+  // ─── IR A CARNET CON LA MASCOTA SELECCIONADA ───
+  void _irACarnet() {
+    if (_mascotas.isEmpty) {
+      // Si no hay mascotas, redirigir a "Mis Mascotas"
+      _irAMascotas();
+      return;
+    }
+
+    // Tomar la primera mascota (o la que el usuario tenga)
+    final mascota = _mascotas.first;
+
+    // Convertir peso correctamente
+    double pesoFinal = 0.0;
+    final pesoRaw = mascota['Peso'];
+    if (pesoRaw != null) {
+      if (pesoRaw is double) {
+        pesoFinal = pesoRaw;
+      } else if (pesoRaw is int) {
+        pesoFinal = pesoRaw.toDouble();
+      } else if (pesoRaw is String) {
+        pesoFinal = double.tryParse(pesoRaw.replaceAll(',', '.')) ?? 0.0;
+      }
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CarnetDigitalScreen(
+          idMascota: mascota['ID_mascota'] ?? 0,
+          nombreMascota: mascota['Nombre'] ?? 'Sin nombre',
+          especie: mascota['Especie'] ?? '',
+          raza: mascota['Raza'] ?? '',
+          sexo: mascota['Sexo'] ?? '',
+          peso: pesoFinal,
+          fechaNacimiento: mascota['Fecha_nacimiento'],
+        ),
+      ),
+    );
+  }
 
   // ============================================================
   // BUILD
@@ -255,7 +285,7 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // WIDGETS - ESTADO DE ERROR (sesión caída, sin conexión, etc.)
+  // WIDGETS - ESTADO DE ERROR
   // ============================================================
   Widget _buildErrorState() {
     return Center(
@@ -323,7 +353,7 @@ class _InicioScreenState extends State<InicioScreen> {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.person, color: Colors.white, size: 28),
@@ -336,13 +366,11 @@ class _InicioScreenState extends State<InicioScreen> {
                       Text(
                         '$_saludo,',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 14,
                         ),
                       ),
                       Text(
-                        // FIX: el backend solo maneja 'Nombre' (nombre
-                        // completo), no existe un campo 'Apellido' aparte.
                         _nombre.isNotEmpty ? _nombre : 'Bienvenido/a',
                         style: const TextStyle(
                           color: Colors.white,
@@ -361,7 +389,7 @@ class _InicioScreenState extends State<InicioScreen> {
             Text(
               'Tu mascota te está esperando',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 fontSize: 14,
               ),
             ),
@@ -391,7 +419,7 @@ class _InicioScreenState extends State<InicioScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: kBlue.withOpacity(0.3),
+              color: kBlue.withValues(alpha: 0.3),
               blurRadius: 14,
               offset: const Offset(0, 6),
             ),
@@ -406,7 +434,7 @@ class _InicioScreenState extends State<InicioScreen> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.badge, color: Colors.white, size: 22),
@@ -427,8 +455,6 @@ class _InicioScreenState extends State<InicioScreen> {
             ),
             const SizedBox(height: 16),
             if (mascota != null) ...[
-              // FIX: campos reales de la API son 'Nombre', 'Especie' y
-              // 'Raza' (con mayúscula inicial), no 'nombre'/'especie'/'raza'.
               Text(
                 '${mascota['Nombre'] ?? 'Mascota'}',
                 style: const TextStyle(
@@ -443,7 +469,7 @@ class _InicioScreenState extends State<InicioScreen> {
               Text(
                 '${mascota['Especie'] ?? ''} • ${mascota['Raza'] ?? ''}',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.85),
+                  color: Colors.white.withValues(alpha: 0.85),
                   fontSize: 14,
                 ),
                 maxLines: 1,
@@ -462,7 +488,7 @@ class _InicioScreenState extends State<InicioScreen> {
               Text(
                 'Registra tu primera mascota para generar tu carnet',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.85),
+                  color: Colors.white.withValues(alpha: 0.85),
                   fontSize: 13,
                 ),
               ),
@@ -556,13 +582,6 @@ class _InicioScreenState extends State<InicioScreen> {
       ),
     ];
 
-    // FIX: BOTTOM OVERFLOWED BY 3.6 PIXELS
-    // Se reemplaza GridView.count (con childAspectRatio) por
-    // GridView.builder + SliverGridDelegateWithFixedCrossAxisCount usando
-    // mainAxisExtent. Esto da una altura FIJA y con margen suficiente para
-    // que quepan el ícono + una etiqueta de hasta 2 líneas (ej. "Carnet de
-    // Vacunas"), sin depender de un aspect ratio calculado que puede
-    // quedarse corto según el ancho de pantalla.
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -570,7 +589,7 @@ class _InicioScreenState extends State<InicioScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        mainAxisExtent: 118, // altura fija de cada tarjeta
+        mainAxisExtent: 118,
       ),
       itemCount: acciones.length,
       itemBuilder: (context, index) => _buildAccionCard(acciones[index]),
@@ -599,7 +618,7 @@ class _InicioScreenState extends State<InicioScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: accion.color.withOpacity(0.1),
+                  color: accion.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(accion.icon, color: accion.color, size: 22),
@@ -637,7 +656,7 @@ class _InicioScreenState extends State<InicioScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -665,9 +684,6 @@ class _InicioScreenState extends State<InicioScreen> {
       );
     }
 
-    // FIX: los campos reales que devuelve la API de citas son
-    // 'Nombre_servicio', 'Nombre_mascota', 'Fecha' y 'Hora'
-    // (ver citas_screen.dart _buildCitaCard), no 'servicio'/'mascota'.
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -675,7 +691,7 @@ class _InicioScreenState extends State<InicioScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -687,7 +703,7 @@ class _InicioScreenState extends State<InicioScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: kBlue.withOpacity(0.1),
+              color: kBlue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -749,11 +765,9 @@ class _InicioScreenState extends State<InicioScreen> {
   // WIDGETS - ESTADÍSTICAS
   // ============================================================
   Widget _buildEstadisticas() {
-    // FIX: campo real es 'Estado' (mayúscula inicial).
     final citasActivas = _citas
         .where(
-          (c) =>
-      (c['Estado'] == 'Pendiente' || c['Estado'] == 'Confirmada'),
+          (c) => (c['Estado'] == 'Pendiente' || c['Estado'] == 'Confirmada'),
     )
         .length;
 
@@ -764,7 +778,7 @@ class _InicioScreenState extends State<InicioScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -843,7 +857,7 @@ class _InicioScreenState extends State<InicioScreen> {
           Icon(Icons.pets, color: Colors.grey, size: 20),
           SizedBox(height: 8),
           Text(
-            '© 2024 PetCard. Todos los derechos reservados.',
+            '© 2026 PetCard. Todos los derechos reservados.',
             style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ],
