@@ -50,11 +50,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
   // COLORES
   // ============================================================
   static const Color kAzul = Color(0xFF2563EB);
-  static const Color kAzulBg = Color(0xFFEFF6FF);
   static const Color kRojo = Color(0xFFDC2626);
-  static const Color kRojoBg = Color(0xFFFEE2E2);
-  static const Color kVerde = Color(0xFF16A34A);
-  static const Color kGris = Color(0xFF6B7280);
 
   // ============================================================
   // CICLO DE VIDA
@@ -126,14 +122,14 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
     final nacimiento = DateTime.tryParse(fechaNacimiento);
     if (nacimiento == null) return null;
     final ahora = DateTime.now();
-    int años = ahora.year - nacimiento.year;
+    int anios = ahora.year - nacimiento.year;
     if (ahora.month < nacimiento.month ||
-    (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
-    años--;
+        (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
+      anios--;
     }
-    if (años < 0) return null;
-    if (años == 0) return 'Menos de 1 año';
-    return '$años años';
+    if (anios < 0) return null;
+    if (anios == 0) return 'Menos de 1 año';
+    return '$anios años';
   }
 
   // ============================================================
@@ -601,7 +597,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: kAzul.withOpacity(0.1),
+                      color: kAzul.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -667,7 +663,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kRojoBg,
+        color: const Color(0xFFFEE2E2),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.red[100]!),
       ),
@@ -713,7 +709,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -769,7 +765,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
             // NOMBRE - Validación sin números
             _buildCampoFormulario(
               label: 'Nombre de la mascota',
-              hint: 'Ej. Benyi',
+              hint: 'Ej. Max',
               controller: _nombreController,
               validator: (value) => _validarTexto(value, 'nombre'),
             ),
@@ -988,9 +984,9 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
             height: 96,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: kAzul.withOpacity(0.08),
+              color: kAzul.withValues(alpha: 0.08),
               border: Border.all(
-                color: kAzul.withOpacity(0.3),
+                color: kAzul.withValues(alpha: 0.3),
                 width: 1.5,
               ),
             ),
@@ -1054,7 +1050,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1069,7 +1065,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: kAzul.withOpacity(0.1),
+                  color: kAzul.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: (mascota['foto'] != null && mascota['foto'].toString().isNotEmpty)
@@ -1124,7 +1120,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
           ),
           const SizedBox(height: 12),
 
-          // BOTÓN "VER CARNET" - SEPARADO
+          // BOTON "VER CARNET" - SEPARADO
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(

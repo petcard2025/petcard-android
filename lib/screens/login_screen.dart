@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import '../services/api_service.dart';
 import 'register_screen.dart';
-import '../vete_screens/vet_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   static const Color kBlue = Color(0xFF3B82F6);
   static const Color kBlueDark = Color(0xFF2563EB);
+  static const Color kBg = Color(0xFFF8F9FA);
 
   @override
   void dispose() {
@@ -36,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.signIn(
+      final respuesta = await _authService.signIn(
         email: _emailController.text,
         password: _passwordController.text,
       );
@@ -46,45 +45,11 @@ class _LoginScreenState extends State<LoginScreen> {
           const SnackBar(content: Text('Inicio de sesión exitoso')),
         );
 
-        // Revisamos el rol del usuario que devolvió el backend para
-        // decidir a qué pantalla lo mandamos.
-        final usuario = _authService.usuarioActual;
-        final rol = (usuario?['Rol'] ?? usuario?['rol'] ?? '')
-            .toString()
-            .toLowerCase();
-        final nombre = usuario?['Nombre'] ?? 'Veterinario';
-        final idUsuario = usuario?['ID_usuario'];
+        final usuario = respuesta['usuario'];
+        final rol = (usuario?['Rol'] ?? 'cliente').toString().toLowerCase();
 
         if (rol == 'admin' || rol == 'administrador') {
           Navigator.pushReplacementNamed(context, '/admin');
-        } else if (rol == 'veterinario') {
-          // El objeto "usuario" del login NO trae ID_veterinario (ese campo
-          // vive en la tabla 'veterinario', no en 'usuario'). Buscamos el
-          // registro de veterinario que corresponde a este usuario para
-          // obtener su ID_veterinario real, que es el que usan las citas.
-          String? idVeterinarioReal;
-          try {
-            final veterinarios = await ApiService().obtenerVeterinarios();
-            final match = veterinarios.firstWhere(
-                  (v) => v['ID_usuario']?.toString() == idUsuario?.toString(),
-              orElse: () => <String, dynamic>{},
-            );
-            idVeterinarioReal = match['ID_veterinario']?.toString();
-          } catch (_) {
-            // Si falla, seguimos con null; el dashboard mostrará todas
-            // las citas en vez de fallar por completo.
-          }
-
-          if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VetDashboardScreen(
-                nombreVeterinario: nombre,
-                idVeterinario: idVeterinarioReal,
-              ),
-            ),
-          );
         } else {
           Navigator.pushReplacementNamed(context, '/home');
         }
@@ -93,6 +58,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.message)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error inesperado: $e')),
         );
       }
     } finally {
@@ -209,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: kBg,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -285,12 +256,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         hintText: 'correo@ejemplo.com',
                         prefixIcon: const Icon(Icons.mail_outline, color: kBlue),
                         filled: true,
-                        fillColor: const Color(0xFFF3F4F6),
+                        fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: kBlue, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -303,6 +282,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
+
                     const Text(
                       'CONTRASEÑA',
                       style: TextStyle(
@@ -331,12 +311,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                         filled: true,
-                        fillColor: const Color(0xFFF3F4F6),
+                        fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: kBlue, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -444,7 +432,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Botones sociales (visuales por ahora)
+                    // Botones sociales
                     Row(
                       children: [
                         Expanded(

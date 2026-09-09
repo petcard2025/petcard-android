@@ -144,14 +144,14 @@ class Mascota {
     final nacimiento = DateTime.tryParse(fechaNacimiento!);
     if (nacimiento == null) return '—';
     final ahora = DateTime.now();
-    int años = ahora.year - nacimiento.year;
+    int anios = ahora.year - nacimiento.year;
     if (ahora.month < nacimiento.month ||
-    (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
-    años--;
+        (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
+      anios--;
     }
-    if (años < 0) return '—';
-    if (años == 0) return 'Menos de 1 año';
-    return '$años años';
+    if (anios < 0) return '—';
+    if (anios == 0) return 'Menos de 1 año';
+    return '$anios años';
   }
 
   int? get edadNumerica {
@@ -159,12 +159,12 @@ class Mascota {
     final nacimiento = DateTime.tryParse(fechaNacimiento!);
     if (nacimiento == null) return null;
     final ahora = DateTime.now();
-    int años = ahora.year - nacimiento.year;
+    int anios = ahora.year - nacimiento.year;
     if (ahora.month < nacimiento.month ||
-    (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
-    años--;
+        (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
+      anios--;
     }
-    return años >= 0 ? años : null;
+    return anios >= 0 ? anios : null;
   }
 }
 

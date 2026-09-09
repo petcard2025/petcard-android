@@ -20,8 +20,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
-  static const Color kBlue = Color(0xFF2563EB);
+  static const Color kBlue = Color(0xFF3B82F6);
   static const Color kBlueDark = Color(0xFF2563EB);
+  static const Color kBg = Color(0xFFF8F9FA);
 
   @override
   void dispose() {
@@ -48,9 +49,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registro exitoso')),
+          const SnackBar(content: Text('Registro exitoso. Revisa tu correo para confirmar tu cuenta.')),
         );
-        Navigator.pushReplacementNamed(context, '/login'); // vuelve al login
+        Navigator.pushReplacementNamed(context, '/login');
       }
     } on AuthException catch (e) {
       if (mounted) {
@@ -66,7 +67,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: kBg,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -153,12 +154,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         hintText: 'Tu nombre',
                         prefixIcon: const Icon(Icons.person_outline, color: kBlue),
                         filled: true,
-                        fillColor: const Color(0xFFF3F4F6),
+                        fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: kBlue, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -186,12 +195,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         hintText: 'correo@ejemplo.com',
                         prefixIcon: const Icon(Icons.mail_outline, color: kBlue),
                         filled: true,
-                        fillColor: const Color(0xFFF3F4F6),
+                        fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: kBlue, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -222,15 +239,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         hintText: '300 123 4567',
                         prefixIcon: const Icon(Icons.phone_outlined, color: kBlue),
                         filled: true,
-                        fillColor: const Color(0xFFF3F4F6),
+                        fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: kBlue, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                       ),
-                      // Opcional: no se valida como obligatorio porque en la
-                      // base de datos el campo Telefono admite valor nulo.
                     ),
                     const SizedBox(height: 20),
 
@@ -262,12 +285,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         filled: true,
-                        fillColor: const Color(0xFFF3F4F6),
+                        fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: kBlue, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -310,12 +341,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         filled: true,
-                        fillColor: const Color(0xFFF3F4F6),
+                        fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: kBlue, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                       ),
                       validator: (value) {
                         if (value != _passwordController.text) {
@@ -396,7 +435,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
-// Clipper para la curva del header azul (idéntico al de login)
+// Clipper para la curva del header azul
 class _BottomCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

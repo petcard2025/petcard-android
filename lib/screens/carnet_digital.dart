@@ -33,7 +33,6 @@ class CarnetDigitalScreen extends StatefulWidget {
 
 class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   static const Color kBlue = Color(0xFF3B82F6);
-  static const Color kBlueDark = Color(0xFF1E3A5F);
   static const Color kYellow = Color(0xFFFCD34D);
   static const Color kSuccess = Color(0xFF10B981);
 
@@ -103,14 +102,14 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     final nacimiento = DateTime.tryParse(widget.fechaNacimiento!);
     if (nacimiento == null) return '—';
     final ahora = DateTime.now();
-    int años = ahora.year - nacimiento.year;
+    int anios = ahora.year - nacimiento.year;
     if (ahora.month < nacimiento.month ||
-    (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
-    años--;
+        (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
+      anios--;
     }
-    if (años < 0) return '—';
-    if (años == 0) return 'Menos de 1 año';
-    return '$años años';
+    if (anios < 0) return '—';
+    if (anios == 0) return 'Menos de 1 año';
+    return '$anios años';
   }
 
   // ─── FORMATEAR FECHA ───
@@ -294,7 +293,10 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           errorBuilder: (context, error, stackTrace) => Container(
             width: 64,
             height: 64,
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
             child: const Icon(Icons.pets, color: kYellow, size: 36),
           ),
         ),
@@ -303,7 +305,10 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     return Container(
       width: 64,
       height: 64,
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+      ),
       child: const Icon(Icons.pets, color: kYellow, size: 36),
     );
   }
@@ -312,9 +317,19 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   Widget _buildCarnetCard() {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF1E3A5F), Color(0xFF2D4A7A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E3A5F), Color(0xFF2D4A7A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: const Color(0xFF1E3A5F).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8))],
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E3A5F).withValues(alpha: 0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -322,8 +337,21 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(children: const [Icon(Icons.pets, color: kYellow, size: 24), SizedBox(width: 8), Text('PetCard', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))]),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: kSuccess, borderRadius: BorderRadius.circular(20)), child: const Text('VÁLIDO', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
+              Row(
+                children: const [
+                  Icon(Icons.pets, color: kYellow, size: 24),
+                  SizedBox(width: 8),
+                  Text('PetCard', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: kSuccess,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('VÁLIDO', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -336,7 +364,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(widget.nombreMascota, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                    Text('${widget.especie} · ${widget.raza}', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
+                    Text('${widget.especie} · ${widget.raza}', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14)),
                   ],
                 ),
               ),
@@ -345,7 +373,10 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Column(
               children: [
                 _buildDetailRow('EDAD', _calcularEdad(), 'PESO', '${widget.peso} kg'),
@@ -358,25 +389,40 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: const [Icon(Icons.person, color: Colors.white60, size: 14), SizedBox(width: 4), Text('PROPIETARIO', style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold))]),
+                Row(
+                  children: const [
+                    Icon(Icons.person, color: Colors.white60, size: 14),
+                    SizedBox(width: 4),
+                    Text('PROPIETARIO', style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold)),
+                  ],
+                ),
                 const SizedBox(height: 4),
-                Text(_nombrePropietario.isEmpty ? '-' : _nombrePropietario, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text(
+                  _nombrePropietario.isEmpty ? '-' : _nombrePropietario,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
                 Row(
                   children: [
                     const Icon(Icons.phone, color: Colors.white60, size: 10),
                     const SizedBox(width: 4),
-                    Text(_telefonoPropietario.isEmpty ? '-' : _telefonoPropietario, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+                    Text(
+                      _telefonoPropietario.isEmpty ? '-' : _telefonoPropietario,
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+                    ),
                     const SizedBox(width: 12),
                     const Icon(Icons.email, color: Colors.white60, size: 10),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         _emailPropietario.isEmpty ? '-' : _emailPropietario,
-                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -391,14 +437,22 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   }
 
   Widget _buildDetailRow(String label1, String value1, String label2, String value2) {
-    return Row(children: [Expanded(child: _buildDetailItem(label1, value1)), Expanded(child: _buildDetailItem(label2, value2))]);
+    return Row(
+      children: [
+        Expanded(child: _buildDetailItem(label1, value1)),
+        Expanded(child: _buildDetailItem(label2, value2)),
+      ],
+    );
   }
 
   Widget _buildDetailItem(String label, String value) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(color: Colors.white60, fontSize: 8, fontWeight: FontWeight.bold)),
-      Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 8, fontWeight: FontWeight.bold)),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+      ],
+    );
   }
 
   // ─── TARJETA DE VACUNA ───
@@ -411,7 +465,11 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Row(
@@ -420,7 +478,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: kBlue.withOpacity(0.1),
+              color: kBlue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.medical_services, color: kBlue, size: 20),
