@@ -16,6 +16,7 @@ class AdminMascotasScreen extends StatefulWidget {
 class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
   static const Color kAzul = Color(0xFF2563EB);
   static const Color kRojo = Color(0xFFDC2626);
+  static const Color kVerde = Color(0xFF16A34A);
 
   final ApiService _api = ApiService();
 
@@ -58,6 +59,66 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
     super.dispose();
   }
 
+  // ─── VALIDACIONES ───
+  String? _validarTexto(String? value, String campo) {
+    if (value == null || value.trim().isEmpty) {
+      return 'El $campo es obligatorio';
+    }
+    final texto = value.trim();
+    final regex = RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$');
+    if (!regex.hasMatch(texto)) {
+      return 'El $campo no debe contener números';
+    }
+    return null;
+  }
+
+  String? _validarPeso(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'El peso es obligatorio';
+    }
+    final peso = double.tryParse(value.trim().replaceAll(',', '.'));
+    if (peso == null) {
+      return 'Ingresa un número válido';
+    }
+    if (peso <= 0) {
+      return 'El peso debe ser mayor a 0';
+    }
+    if (peso > 150) {
+      return 'El peso máximo es 150 kg';
+    }
+    return null;
+  }
+
+  String? _validarFechaNacimiento(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    final fecha = DateTime.tryParse(value.trim());
+    if (fecha == null) {
+      return 'Formato inválido (YYYY-MM-DD)';
+    }
+    if (fecha.isAfter(DateTime.now())) {
+      return 'La fecha no puede ser futura';
+    }
+    return null;
+  }
+
+  String? _calcularEdadDesdeFecha(String? fechaNacimiento) {
+    if (fechaNacimiento == null || fechaNacimiento.isEmpty) return null;
+    final nacimiento = DateTime.tryParse(fechaNacimiento);
+    if (nacimiento == null) return null;
+    final ahora = DateTime.now();
+    int años = ahora.year - nacimiento.year;
+    if (ahora.month < nacimiento.month ||
+    (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
+    años--;
+    }
+    if (años < 0) return null;
+    if (años == 0) return 'Menos de 1 año';
+    return '$años años';
+  }
+
+  // ─── CARGA DE DATOS ───
   Future<void> _cargarDatos() async {
     setState(() {
       _isLoading = true;
@@ -128,8 +189,34 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
   }
 
   Future<void> _guardarMascota() async {
-    if (_nombreCtrl.text.trim().isEmpty || _especieCtrl.text.trim().isEmpty) {
-      _mostrarAlerta('Atención', 'Nombre y especie son obligatorios.');
+    // Validaciones
+    final nombreError = _validarTexto(_nombreCtrl.text, 'nombre');
+    if (nombreError != null) {
+      _mostrarAlerta('Atención', nombreError);
+      return;
+    }
+
+    final especieError = _validarTexto(_especieCtrl.text, 'especie');
+    if (especieError != null) {
+      _mostrarAlerta('Atención', especieError);
+      return;
+    }
+
+    final razaError = _validarTexto(_razaCtrl.text, 'raza');
+    if (razaError != null) {
+      _mostrarAlerta('Atención', razaError);
+      return;
+    }
+
+    final pesoError = _validarPeso(_pesoCtrl.text);
+    if (pesoError != null) {
+      _mostrarAlerta('Atención', pesoError);
+      return;
+    }
+
+    final fechaError = _validarFechaNacimiento(_fechaNacimientoCtrl.text);
+    if (fechaError != null) {
+      _mostrarAlerta('Atención', fechaError);
       return;
     }
 
@@ -158,7 +245,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_editando ? '✅ Mascota actualizada' : '✅ Mascota creada'),
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: kVerde,
         ),
       );
     } catch (e) {
@@ -406,6 +493,8 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
   }
 
   Widget _buildMascotaCard(Map<String, dynamic> m) {
+    final edad = _calcularEdadDesdeFecha(m['Fecha_nacimiento']);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -443,6 +532,11 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
                       '${m['Especie'] ?? ''} · ${m['Raza'] ?? ''}',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
+                    if (edad != null)
+                      Text(
+                        '🎂 $edad',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
                   ],
                 ),
               ),
@@ -522,7 +616,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
   }
 
   // ============================================================
-  // FORMULARIO (Modal)
+  // FORMULARIO
   // ============================================================
   Widget _buildFormulario() {
     return Container(
@@ -536,114 +630,122 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
             child: Container(
               width: 500,
               padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _editando ? 'Editar Mascota' : 'Nueva Mascota',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A1A2E),
+              child: Form(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _editando ? 'Editar Mascota' : 'Nueva Mascota',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1A1A2E),
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          setState(() => _mostrarFormulario = false);
-                          _limpiarFormulario();
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _campoTexto('Nombre', _nombreCtrl, hint: 'Ej. Max'),
-                  const SizedBox(height: 12),
-                  _campoTexto('Especie', _especieCtrl, hint: 'Ej. Perro, Gato'),
-                  const SizedBox(height: 12),
-                  _campoTexto('Raza', _razaCtrl, hint: 'Ej. Labrador'),
-                  const SizedBox(height: 12),
-                  _buildDropdownBusqueda(
-                    label: 'Sexo',
-                    controller: _sexoCtrl,
-                    opciones: ['Macho', 'Hembra'],
-                  ),
-                  const SizedBox(height: 12),
-                  _campoTexto('Peso (kg)', _pesoCtrl, hint: 'Ej. 25', keyboardType: TextInputType.number),
-                  const SizedBox(height: 12),
-                  _campoTexto('ID Cliente', _clienteCtrl, hint: 'ID del dueño', keyboardType: TextInputType.number),
-                  const SizedBox(height: 12),
-                  _campoTexto('Fecha nacimiento', _fechaNacimientoCtrl, hint: 'YYYY-MM-DD'),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _guardarMascota,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kAzul,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            setState(() => _mostrarFormulario = false);
+                            _limpiarFormulario();
+                          },
                         ),
-                      ),
-                      child: Text(
-                        _editando ? 'Actualizar' : 'Agregar',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // NOMBRE - Validación sin números
+                    _campoTextoValidado(
+                      label: 'Nombre',
+                      controller: _nombreCtrl,
+                      hint: 'Ej. Max',
+                      validator: (value) => _validarTexto(value, 'nombre'),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // ESPECIE - Validación sin números
+                    _campoTextoValidado(
+                      label: 'Especie',
+                      controller: _especieCtrl,
+                      hint: 'Ej. Perro, Gato',
+                      validator: (value) => _validarTexto(value, 'especie'),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // RAZA - Validación sin números
+                    _campoTextoValidado(
+                      label: 'Raza',
+                      controller: _razaCtrl,
+                      hint: 'Ej. Labrador',
+                      validator: (value) => _validarTexto(value, 'raza'),
+                    ),
+                    const SizedBox(height: 12),
+
+                    _buildDropdownBusqueda(
+                      label: 'Sexo',
+                      controller: _sexoCtrl,
+                      opciones: ['Macho', 'Hembra'],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // PESO - Validación 0-150 kg
+                    _campoTextoValidado(
+                      label: 'Peso (kg)',
+                      controller: _pesoCtrl,
+                      hint: 'Ej. 25',
+                      keyboardType: TextInputType.number,
+                      validator: _validarPeso,
+                    ),
+                    const SizedBox(height: 12),
+
+                    _campoTexto(
+                      label: 'ID Cliente',
+                      controller: _clienteCtrl,
+                      hint: 'ID del dueño',
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // FECHA DE NACIMIENTO
+                    _campoTextoValidado(
+                      label: 'Fecha nacimiento',
+                      controller: _fechaNacimientoCtrl,
+                      hint: 'YYYY-MM-DD',
+                      validator: _validarFechaNacimiento,
+                    ),
+                    const SizedBox(height: 20),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _guardarMascota,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kAzul,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          _editando ? 'Actualizar' : 'Agregar',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildDropdownBusqueda({
-    required String label,
-    required TextEditingController controller,
-    required List<String> opciones,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: controller.text.isNotEmpty ? controller.text : null,
-              isExpanded: true,
-              hint: Text('Selecciona...', style: TextStyle(color: Colors.grey[400])),
-              items: opciones.map((opcion) {
-                return DropdownMenuItem(
-                  value: opcion,
-                  child: Text(opcion),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() => controller.text = value ?? '');
-              },
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -681,6 +783,84 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
             isDense: true,
             filled: true,
             fillColor: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _campoTextoValidado({
+    required String label,
+    required TextEditingController controller,
+    String? hint,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          validator: validator,
+          decoration: InputDecoration(
+            hintText: hint,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: kAzul, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            isDense: true,
+            filled: true,
+            fillColor: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownBusqueda({
+    required String label,
+    required TextEditingController controller,
+    required List<String> opciones,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: controller.text.isNotEmpty ? controller.text : null,
+              isExpanded: true,
+              hint: Text('Selecciona...', style: TextStyle(color: Colors.grey[400])),
+              items: opciones.map((opcion) {
+                return DropdownMenuItem(
+                  value: opcion,
+                  child: Text(opcion),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() => controller.text = value ?? '');
+              },
+            ),
           ),
         ),
       ],

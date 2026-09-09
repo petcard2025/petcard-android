@@ -2,10 +2,6 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 
-/// Servicio centralizado de autenticación.
-///
-/// Ahora todo pasa por el backend propio (JWT + MySQL),
-/// sin depender de Firebase Authentication.
 class AuthService {
   // Patrón Singleton
   static final AuthService _instance = AuthService._internal();

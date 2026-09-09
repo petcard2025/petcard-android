@@ -11,6 +11,9 @@ class ApiService {
     '172.20.10.2',      // Red actual (más reciente)
     '192.168.137.165', // Hotspot móvil
     '192.168.80.23',   // WiFi de casa
+    '192.168.80.25', // laura
+    '192.168.112.1', // laura
+    '181.59.2.17',   // laura
   ];
 
   // IP que realmente se usará. Empieza con la primera de la lista y se
