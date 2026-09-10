@@ -18,6 +18,7 @@ class _CitasScreenState extends State<CitasScreen> {
   // VARIABLES DE ESTADO
   // ============================================================
   bool _isLoading = true;
+  bool _verTodas = false;
   List<Map<String, dynamic>> _citas = [];
   List<Map<String, dynamic>> _mascotas = [];
   bool _mostrarFormulario = false;
@@ -513,7 +514,7 @@ class _CitasScreenState extends State<CitasScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
         backgroundColor: kAzul,
         elevation: 0,
@@ -546,7 +547,7 @@ class _CitasScreenState extends State<CitasScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? _buildSkeletonLoading()
           : SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -605,44 +606,142 @@ class _CitasScreenState extends State<CitasScreen> {
               _buildConfirmacionCita(),
 
             // ==========================================================
-            // LISTA DE CITAS (gestión completa)
+            // BOTONES PERSISTENTES: siempre visibles, arriba de todo
             // ==========================================================
             if (!_mostrarFormulario && _citaRecienCreada == null) ...[
-              if (_citas.isEmpty)
-                _buildEmptyState()
-              else
-                ..._citas.map((cita) => _buildCitaCard(cita)),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _mostrarFormulario = true;
-                      _editando = false;
-                      _limpiarFormulario();
-                    });
-                  },
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text(
-                    'Nueva cita',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => setState(() => _verTodas = !_verTodas),
+                      icon: Icon(
+                        _verTodas ? Icons.expand_less : Icons.event_note,
+                        color: kAzul,
+                      ),
+                      label: Text(
+                        _verTodas ? 'Ocultar citas' : 'Ver todas mis citas',
+                        style: const TextStyle(
+                          color: kAzul,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: kAzul),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kAzul,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _mostrarFormulario = true;
+                          _editando = false;
+                          _citaRecienCreada = null;
+                          _limpiarFormulario();
+                        });
+                      },
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      label: const Text(
+                        'Nueva cita',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kAzul,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
+              const SizedBox(height: 20),
+
+              // ========================================================
+              // LISTA DE CITAS: solo se muestra si _verTodas es true
+              // ========================================================
+              if (_verTodas)
+                if (_citas.isEmpty)
+                  _buildEmptyState()
+                else
+                  ..._citas.map((cita) => _buildCitaCard(cita)),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // WIDGET - PANTALLA DE CARGA (skeleton, estilo Google/YouTube)
+  // ============================================================
+  Widget _buildSkeletonLoading() {
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ShimmerBox(width: 200, height: 22),
+          const SizedBox(height: 8),
+          const _ShimmerBox(width: 260, height: 13),
+          const SizedBox(height: 24),
+          Row(
+            children: const [
+              Expanded(child: _ShimmerBox(width: double.infinity, height: 48)),
+              SizedBox(width: 10),
+              Expanded(child: _ShimmerBox(width: double.infinity, height: 48)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildSkeletonCard(),
+          _buildSkeletonCard(),
+          _buildSkeletonCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSkeletonCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ShimmerBox(
+            width: 48,
+            height: 48,
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                _ShimmerBox(width: 140, height: 14),
+                SizedBox(height: 8),
+                _ShimmerBox(width: 190, height: 12),
+                SizedBox(height: 8),
+                _ShimmerBox(width: 110, height: 12),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -655,49 +754,8 @@ class _CitasScreenState extends State<CitasScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF10B981).withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFF10B981).withValues(alpha: 0.3),
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF10B981),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '¡Cita agendada!',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[900],
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Tu cita quedó registrada correctamente',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        const _AlertaExito(
+          mensaje: 'Cita registrada con éxito en la base de datos.',
         ),
         const SizedBox(height: 16),
 
@@ -1240,6 +1298,152 @@ class _CitasScreenState extends State<CitasScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ============================================================
+// WIDGET - CUADRO DE ÉXITO (idéntico al .alert-success de la web)
+// Fondo degradado verde, borde verde suave, ícono ✅, con una
+// pequeña animación de entrada tipo "sacudida" (igual que el
+// @keyframes shakeIn de citas.vue).
+// ============================================================
+class _AlertaExito extends StatefulWidget {
+  final String mensaje;
+
+  const _AlertaExito({required this.mensaje});
+
+  @override
+  State<_AlertaExito> createState() => _AlertaExitoState();
+}
+
+class _AlertaExitoState extends State<_AlertaExito>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 350),
+  )..forward();
+
+  late final Animation<double> _opacidad = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOut,
+  );
+
+  late final Animation<double> _sacudida = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 0.0, end: -6.0), weight: 25),
+    TweenSequenceItem(tween: Tween(begin: -6.0, end: 6.0), weight: 25),
+    TweenSequenceItem(tween: Tween(begin: 6.0, end: -3.0), weight: 25),
+    TweenSequenceItem(tween: Tween(begin: -3.0, end: 0.0), weight: 25),
+  ]).animate(_controller);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _opacidad.value,
+          child: Transform.translate(
+            offset: Offset(_sacudida.value, 0),
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFF0FDF4), Color(0xFFDCFCE7)],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF86EFAC), width: 1.5),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('✅', style: TextStyle(fontSize: 20)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                widget.mensaje,
+                style: const TextStyle(
+                  color: Color(0xFF166534),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// WIDGET - EFECTO "SHIMMER" (brillo animado, estilo Google/YouTube)
+// Se usa mientras se cargan los datos, en vez de un simple spinner.
+// ============================================================
+class _ShimmerBox extends StatefulWidget {
+  final double width;
+  final double height;
+  final BorderRadius borderRadius;
+
+  const _ShimmerBox({
+    required this.width,
+    required this.height,
+    this.borderRadius = const BorderRadius.all(Radius.circular(6)),
+  });
+
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = _controller.value;
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: widget.borderRadius,
+            gradient: LinearGradient(
+              begin: Alignment(-1 + t * 3, 0),
+              end: Alignment(0 + t * 3, 0),
+              colors: const [
+                Color(0xFFE5E7EB),
+                Color(0xFFF3F4F6),
+                Color(0xFFE5E7EB),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

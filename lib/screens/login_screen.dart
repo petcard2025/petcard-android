@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = false;
 
-  static const Color kBlue = Color(0xFF3B82F6);
+  static const Color kBlue = Color(0xFF2563EB);
   static const Color kBlueDark = Color(0xFF2563EB);
 
   @override
@@ -28,6 +28,96 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _mostrarDialogoConfigurarIp() async {
+    final ipController = TextEditingController(text: ApiService.ipActual);
+    String? mensajeEstado;
+    bool probando = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Configurar conexión al servidor'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Escribe la IP local de la laptop donde corre el backend '
+                        '(la que te da "ipconfig" en Windows). No hace falta '
+                        'recompilar la app después de guardar.',
+                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: ipController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'IP del backend',
+                      hintText: 'Ej: 192.168.1.10',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (mensajeEstado != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      mensajeEstado!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: mensajeEstado!.startsWith('✓') ? Colors.green : Colors.red,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: probando
+                      ? null
+                      : () async {
+                    setDialogState(() {
+                      probando = true;
+                      mensajeEstado = null;
+                    });
+                    final ip = ipController.text.trim();
+                    final ok = await ApiService.probarIp(ip);
+                    setDialogState(() {
+                      probando = false;
+                      mensajeEstado = ok
+                          ? '✓ El servidor respondió correctamente'
+                          : '✗ No se pudo conectar a esa IP';
+                    });
+                  },
+                  child: Text(probando ? 'Probando...' : 'Probar conexión'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final ip = ipController.text.trim();
+                    if (ip.isEmpty) return;
+                    await ApiService.guardarIpManual(ip);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('IP guardada: $ip')),
+                      );
+                    }
+                  },
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _login() async {
@@ -53,35 +143,18 @@ class _LoginScreenState extends State<LoginScreen> {
             .toString()
             .toLowerCase();
         final nombre = usuario?['Nombre'] ?? 'Veterinario';
-        final idUsuario = usuario?['ID_usuario'];
+        final id = (usuario?['ID_veterinario'] ?? usuario?['ID_usuario'])
+            ?.toString();
 
         if (rol == 'admin' || rol == 'administrador') {
           Navigator.pushReplacementNamed(context, '/admin');
         } else if (rol == 'veterinario') {
-          // El objeto "usuario" del login NO trae ID_veterinario (ese campo
-          // vive en la tabla 'veterinario', no en 'usuario'). Buscamos el
-          // registro de veterinario que corresponde a este usuario para
-          // obtener su ID_veterinario real, que es el que usan las citas.
-          String? idVeterinarioReal;
-          try {
-            final veterinarios = await ApiService().obtenerVeterinarios();
-            final match = veterinarios.firstWhere(
-                  (v) => v['ID_usuario']?.toString() == idUsuario?.toString(),
-              orElse: () => <String, dynamic>{},
-            );
-            idVeterinarioReal = match['ID_veterinario']?.toString();
-          } catch (_) {
-            // Si falla, seguimos con null; el dashboard mostrará todas
-            // las citas en vez de fallar por completo.
-          }
-
-          if (!mounted) return;
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (context) => VetDashboardScreen(
                 nombreVeterinario: nombre,
-                idVeterinario: idVeterinarioReal,
+                idVeterinario: id,
               ),
             ),
           );
@@ -512,6 +585,19 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Configuración de IP del servidor (para desarrollo/demo)
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _mostrarDialogoConfigurarIp,
+                        icon: const Icon(Icons.settings_ethernet, size: 16, color: Colors.black38),
+                        label: const Text(
+                          'Configurar conexión',
+                          style: TextStyle(color: Colors.black38, fontSize: 12),
                         ),
                       ),
                     ),

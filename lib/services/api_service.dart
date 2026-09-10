@@ -3,26 +3,55 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Lista de IPs conocidas de tu laptop (la más reciente primero).
-  // Al iniciar la app, se prueba cada una y se usa la primera que responda.
+  static const _ipManualKey = 'ip_backend_manual';
+
+  // Lista de IPs conocidas de tu laptop (la más reciente primero), usada
+  // solo como respaldo automático si NO hay una IP manual configurada.
   static const List<String> _ipsConocidas = [
     '172.20.10.2',      // Red actual (más reciente)
     '192.168.137.165', // Hotspot móvil
-    '192.168.80.23',   // WiFi de casa
+    '192.168.80.15',   // WiFi de casa
   ];
 
   // IP que realmente se usará. Empieza con la primera de la lista y se
-  // actualiza sola si resulta que otra es la que responde (ver resolverIp).
+  // actualiza sola (o con la IP manual guardada) en resolverIp().
   static String _ipActual = _ipsConocidas.first;
 
   static String get baseUrl => 'https://$_ipActual:3001/api';
+  static String get ipActual => _ipActual;
 
-  /// Prueba cada IP conocida (con un timeout corto) y deja seleccionada
-  /// la primera que responda. Llamar una vez al iniciar la app, antes
-  /// de mostrar la pantalla de login.
+  /// Guarda una IP escrita a mano por el usuario (desde la pantalla de
+  /// configuración) y la deja activa de inmediato, sin recompilar la app.
+  static Future<void> guardarIpManual(String ip) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_ipManualKey, ip);
+    _ipActual = ip;
+  }
+
+  /// Borra la IP manual guardada, para volver a la detección automática.
+  static Future<void> borrarIpManual() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_ipManualKey);
+  }
+
+  static Future<String?> obtenerIpManualGuardada() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_ipManualKey);
+  }
+
+  /// Si hay una IP guardada manualmente, se usa esa directamente (sin
+  /// necesidad de estar en la lista _ipsConocidas). Si no hay ninguna
+  /// guardada, se prueba cada IP conocida y se usa la primera que responda.
+  /// Llamar una vez al iniciar la app, antes de mostrar el login.
   static Future<void> resolverIp() async {
+    final ipManual = await obtenerIpManualGuardada();
+    if (ipManual != null && ipManual.isNotEmpty) {
+      _ipActual = ipManual;
+      return;
+    }
     for (final ip in _ipsConocidas) {
       try {
         final cliente = _clienteHttp();
@@ -41,16 +70,29 @@ class ApiService {
     // (el error real se mostrará cuando el usuario intente iniciar sesión).
   }
 
+  /// Prueba una IP específica (sin guardarla) para saber si el backend
+  /// responde ahí. Usado por el diálogo de "Configurar conexión".
+  static Future<bool> probarIp(String ip) async {
+    try {
+      final cliente = _clienteHttp();
+      final respuesta = await cliente
+          .get(Uri.parse('https://$ip:3001/api/servicios'))
+          .timeout(const Duration(seconds: 3));
+      return respuesta.statusCode >= 200 && respuesta.statusCode < 500;
+    } catch (_) {
+      return false;
+    }
+  }
+
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
   static const _usuarioKey = 'usuario_actual';
 
-  // Cliente HTTP que acepta certificado autofirmado de cualquier IP conocida
+  // Cliente HTTP que acepta el certificado autofirmado del backend de
+  // desarrollo, sea cual sea la IP configurada.
   static http.Client _clienteHttp() {
     final httpClient = HttpClient()
-      ..badCertificateCallback = (cert, host, port) {
-        return _ipsConocidas.contains(host);
-      };
+      ..badCertificateCallback = (cert, host, port) => true;
     return IOClient(httpClient);
   }
 
