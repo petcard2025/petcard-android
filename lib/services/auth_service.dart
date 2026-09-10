@@ -2,10 +2,6 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 
-/// Servicio centralizado de autenticación.
-///
-/// Ahora todo pasa por el backend propio (JWT + MySQL),
-/// sin depender de Firebase Authentication.
 class AuthService {
   // Patrón Singleton
   static final AuthService _instance = AuthService._internal();
@@ -23,7 +19,7 @@ class AuthService {
     _usuarioActual = usuario;
   }
 
-  /// Inicia sesión contra el backend y guarda el JWT localmente.
+  /// ─── LOGIN ───
   Future<Map<String, dynamic>> signIn({
     required String email,
     required String password,
@@ -44,7 +40,7 @@ class AuthService {
     }
   }
 
-  /// Registra un nuevo usuario directamente en MySQL.
+  /// ─── REGISTRO ───
   Future<Map<String, dynamic>> signUp({
     required String name,
     required String email,
@@ -65,18 +61,16 @@ class AuthService {
     }
   }
 
-  /// Solicita recuperación de contraseña.
-  /// ⚠️ Nota: el backend aún no envía correo real.
+  /// ─── RECUPERAR CONTRASEÑA ───
   Future<void> sendPasswordResetEmail(String email) async {
     try {
-      // Este método debe estar en ApiService
       await _apiService.solicitarRecuperacion(email.trim());
     } catch (e) {
       throw AuthException(_mensajeAmigable(e.toString()));
     }
   }
 
-  /// Cierra sesión
+  /// ─── CERRAR SESIÓN ───
   Future<void> signOut() async {
     await _apiService.logout();
     final prefs = await SharedPreferences.getInstance();
@@ -84,15 +78,13 @@ class AuthService {
     _usuarioActual = null;
   }
 
-  /// Verifica si hay una sesión activa
+  /// ─── VERIFICAR SESIÓN ACTIVA ───
   Future<bool> haySesionActiva() async {
     final token = await _apiService.obtenerToken();
     if (token == null) return false;
 
-    // Si ya tenemos el usuario en memoria, genial
     if (_usuarioActual != null) return true;
 
-    // Si no, intentamos cargarlo de SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('petcard_usuario_actual');
     if (userStr != null) {

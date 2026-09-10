@@ -46,8 +46,6 @@ class _LoginScreenState extends State<LoginScreen> {
           const SnackBar(content: Text('Inicio de sesión exitoso')),
         );
 
-        // Revisamos el rol del usuario que devolvió el backend para
-        // decidir a qué pantalla lo mandamos.
         final usuario = _authService.usuarioActual;
         final rol = (usuario?['Rol'] ?? usuario?['rol'] ?? '')
             .toString()
@@ -58,10 +56,6 @@ class _LoginScreenState extends State<LoginScreen> {
         if (rol == 'admin' || rol == 'administrador') {
           Navigator.pushReplacementNamed(context, '/admin');
         } else if (rol == 'veterinario') {
-          // El objeto "usuario" del login NO trae ID_veterinario (ese campo
-          // vive en la tabla 'veterinario', no en 'usuario'). Buscamos el
-          // registro de veterinario que corresponde a este usuario para
-          // obtener su ID_veterinario real, que es el que usan las citas.
           String? idVeterinarioReal;
           try {
             final veterinarios = await ApiService().obtenerVeterinarios();
@@ -70,10 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
               orElse: () => <String, dynamic>{},
             );
             idVeterinarioReal = match['ID_veterinario']?.toString();
-          } catch (_) {
-            // Si falla, seguimos con null; el dashboard mostrará todas
-            // las citas en vez de fallar por completo.
-          }
+          } catch (_) {}
 
           if (!mounted) return;
           Navigator.pushReplacement(
@@ -214,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header azul curveado
+            // Header azul con curva inferior
             ClipPath(
               clipper: _BottomCurveClipper(),
               child: Container(
@@ -303,6 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
+
                     const Text(
                       'CONTRASEÑA',
                       style: TextStyle(
@@ -444,7 +436,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Botones sociales (visuales por ahora)
+                    // Botones sociales
                     Row(
                       children: [
                         Expanded(
@@ -526,7 +518,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// Clipper para la curva del header azul
+// Clipper para la curva inferior del header azul
 class _BottomCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

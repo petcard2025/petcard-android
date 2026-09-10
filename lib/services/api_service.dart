@@ -6,22 +6,16 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   // Lista de IPs conocidas de tu laptop (la más reciente primero).
-  // Al iniciar la app, se prueba cada una y se usa la primera que responda.
   static const List<String> _ipsConocidas = [
-    '172.20.10.2',      // Red actual (más reciente)
-    '192.168.137.165', // Hotspot móvil
-    '192.168.80.23',   // WiFi de casa
+    '192.168.80.25',     // laura
+    '192.168.112.1',     // laura
+    '181.59.2.17',       // laura
   ];
 
-  // IP que realmente se usará. Empieza con la primera de la lista y se
-  // actualiza sola si resulta que otra es la que responde (ver resolverIp).
   static String _ipActual = _ipsConocidas.first;
 
   static String get baseUrl => 'https://$_ipActual:3001/api';
 
-  /// Prueba cada IP conocida (con un timeout corto) y deja seleccionada
-  /// la primera que responda. Llamar una vez al iniciar la app, antes
-  /// de mostrar la pantalla de login.
   static Future<void> resolverIp() async {
     for (final ip in _ipsConocidas) {
       try {
@@ -31,21 +25,20 @@ class ApiService {
             .timeout(const Duration(seconds: 2));
         if (respuesta.statusCode >= 200 && respuesta.statusCode < 500) {
           _ipActual = ip;
+          print('✅ IP encontrada: $ip');
           return;
         }
       } catch (_) {
         // Esta IP no respondió, se prueba la siguiente.
       }
     }
-    // Si ninguna respondió, se deja la primera por defecto
-    // (el error real se mostrará cuando el usuario intente iniciar sesión).
+    print('⚠️ Ninguna IP respondió, usando: $_ipActual');
   }
 
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
   static const _usuarioKey = 'usuario_actual';
 
-  // Cliente HTTP que acepta certificado autofirmado de cualquier IP conocida
   static http.Client _clienteHttp() {
     final httpClient = HttpClient()
       ..badCertificateCallback = (cert, host, port) {
@@ -59,10 +52,6 @@ class ApiService {
   // ============================================================
   // USUARIO ACTUAL (decodificado del propio JWT)
   // ============================================================
-  // AuthService no es un singleton, así que en pantallas distintas a
-  // login se pierde el usuario en memoria. En cambio, el token JWT ya
-  // trae ID_usuario, Nombre, Correo y Rol firmados por el backend, así
-  // que los leemos directamente de ahí sin otra llamada al servidor.
   Future<Map<String, dynamic>?> obtenerMiUsuario() async {
     final token = await obtenerToken();
     if (token == null) return null;
@@ -103,16 +92,10 @@ class ApiService {
     await _storage.delete(key: _tokenKey);
   }
 
-  /// Guarda localmente los datos del usuario que devolvió el login
-  /// (Nombre, Correo, Telefono, Rol) para poder mostrarlos luego en
-  /// "Mi Perfil" sin depender de que AuthService siga vivo en memoria.
   Future<void> _guardarUsuarioLocal(Map<String, dynamic> usuario) async {
     await _storage.write(key: _usuarioKey, value: jsonEncode(usuario));
   }
 
-  /// Datos del usuario guardados en el último login (Nombre, Correo,
-  /// Telefono, Rol). Devuelve null si nunca se guardaron (p.ej. la
-  /// sesión sigue activa de antes de este cambio) o si no hay sesión.
   Future<Map<String, dynamic>?> obtenerUsuarioGuardado() async {
     final raw = await _storage.read(key: _usuarioKey);
     if (raw == null) return null;
@@ -200,9 +183,10 @@ class ApiService {
     await borrarToken();
     await _storage.delete(key: _usuarioKey);
   }
-// ============================================================
-// RECUPERAR CONTRASEÑA
-// ============================================================
+
+  // ============================================================
+  // RECUPERAR CONTRASEÑA
+  // ============================================================
   Future<void> solicitarRecuperacion(String correo) async {
     final response = await _client.post(
       Uri.parse('$baseUrl/auth/forgot-password'),
@@ -218,6 +202,7 @@ class ApiService {
 
     throw Exception(data['error'] ?? 'No se pudo procesar la solicitud.');
   }
+
   // ============================================================
   // USUARIOS
   // ============================================================
@@ -261,8 +246,6 @@ class ApiService {
     return _parseLista(response, 'No se pudieron obtener los clientes.');
   }
 
-  /// Devuelve el registro de "cliente" (ID_cliente, Direccion, ID_usuario)
-  /// asociado a un usuario, o null si el usuario no tiene cliente.
   Future<Map<String, dynamic>?> obtenerClientePorUsuario(dynamic idUsuario) async {
     final headers = await _headersConToken();
     final response = await _client.get(
@@ -285,8 +268,6 @@ class ApiService {
     return _parseLista(response, 'No se pudieron obtener las mascotas.');
   }
 
-  /// Mascotas de un cliente en particular (para dropdowns del cliente,
-  /// no el listado completo de administrador).
   Future<List<Map<String, dynamic>>> obtenerMascotasPorCliente(dynamic idCliente) async {
     final headers = await _headersConToken();
     final response = await _client.get(
@@ -326,12 +307,8 @@ class ApiService {
   }
 
   // ============================================================
-  // MASCOTAS (SESIÓN ACTUAL) - "Mis mascotas" del cliente logueado
+  // MASCOTAS (SESIÓN ACTUAL) - "Mis mascotas"
   // ============================================================
-
-  /// ID_cliente del usuario que inició sesión. Si aún no tiene un
-  /// registro de cliente (p. ej. se registró pero nunca agregó una
-  /// mascota), lo crea automáticamente.
   Future<dynamic> obtenerIdClienteActual() async {
     final usuario = await obtenerMiUsuario();
     final idUsuario = usuario?['ID_usuario'];
@@ -344,7 +321,6 @@ class ApiService {
       return cliente['ID_cliente'];
     }
 
-    // No existe todavía: se crea el registro de cliente para este usuario.
     final headers = await _headersConToken();
     final response = await _client.post(
       Uri.parse('$baseUrl/clientes'),
@@ -358,18 +334,17 @@ class ApiService {
     return datosCliente['ID_cliente'];
   }
 
-  /// Mascotas del usuario logueado.
   Future<List<Map<String, dynamic>>> obtenerMisMascotas() async {
     final idCliente = await obtenerIdClienteActual();
     return obtenerMascotasPorCliente(idCliente);
   }
 
-  /// Crea una mascota y la asocia automáticamente al cliente logueado.
   Future<Map<String, dynamic>> crearMiMascota(Map<String, dynamic> datos) async {
     final idCliente = await obtenerIdClienteActual();
     final payload = {...datos, 'ID_cliente': idCliente};
     return crearMascota(payload);
   }
+
   // ============================================================
   // SERVICIOS
   // ============================================================
@@ -483,7 +458,6 @@ class ApiService {
     _verificarOk(response, 'No se pudo marcar como leída.');
   }
 
-  /// Notificaciones de un usuario en particular (para "Mis notificaciones").
   Future<List<Map<String, dynamic>>> obtenerNotificacionesPorUsuario(dynamic idUsuario) async {
     final headers = await _headersConToken();
     final response = await _client.get(
@@ -493,7 +467,6 @@ class ApiService {
     return _parseLista(response, 'No se pudieron obtener tus notificaciones.');
   }
 
-  /// Notificaciones del usuario logueado, resolviendo el ID a partir del JWT.
   Future<List<Map<String, dynamic>>> obtenerMisNotificaciones() async {
     final usuario = await obtenerMiUsuario();
     final idUsuario = usuario?['ID_usuario'];
@@ -503,7 +476,6 @@ class ApiService {
     return obtenerNotificacionesPorUsuario(idUsuario);
   }
 
-  /// Marca varias notificaciones como leídas de una sola vez.
   Future<void> marcarMultiplesNotificacionesLeidas(List<dynamic> ids) async {
     final headers = await _headersConToken();
     final response = await _client.patch(
@@ -555,8 +527,6 @@ class ApiService {
     _verificarOk(response, 'No se pudo actualizar la cita.');
   }
 
-  /// Tu backend solo permite cambiar el "Estado" de una cita vía PATCH
-  /// (el PUT no acepta ese campo), por eso este método es aparte.
   Future<void> cambiarEstadoCita(dynamic id, String estado) async {
     final headers = await _headersConToken();
     final response = await _client.patch(
@@ -567,7 +537,6 @@ class ApiService {
     _verificarOk(response, 'No se pudo cambiar el estado de la cita.');
   }
 
-  /// Horas ya ocupadas de un veterinario en una fecha (evita doble cita).
   Future<List<String>> obtenerHorasOcupadas({
     required dynamic idVeterinario,
     required String fecha,

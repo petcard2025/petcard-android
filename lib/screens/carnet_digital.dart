@@ -8,7 +8,24 @@ import 'package:printing/printing.dart';
 import '../services/api_service.dart';
 
 class CarnetDigitalScreen extends StatefulWidget {
-  const CarnetDigitalScreen({super.key});
+  final int idMascota;
+  final String nombreMascota;
+  final String especie;
+  final String raza;
+  final String sexo;
+  final double peso;
+  final String? fechaNacimiento;
+
+  const CarnetDigitalScreen({
+    super.key,
+    required this.idMascota,
+    required this.nombreMascota,
+    required this.especie,
+    required this.raza,
+    required this.sexo,
+    required this.peso,
+    this.fechaNacimiento,
+  });
 
   @override
   State<CarnetDigitalScreen> createState() => _CarnetDigitalScreenState();
@@ -16,7 +33,6 @@ class CarnetDigitalScreen extends StatefulWidget {
 
 class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   static const Color kBlue = Color(0xFF3B82F6);
-  static const Color kBlueDark = Color(0xFF1E3A5F);
   static const Color kYellow = Color(0xFFFCD34D);
   static const Color kSuccess = Color(0xFF10B981);
 
@@ -24,14 +40,11 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
 
   bool _isLoading = true;
   String? _error;
-  Map<String, dynamic>? _mascota;
-  // Ruta local de la foto (el backend aún no guarda archivos, así que se
-  // busca igual que en "Mis mascotas": cacheada en SharedPreferences con
-  // la clave 'foto_mascota_<ID_mascota>').
   String? _fotoPath;
   String _nombrePropietario = '';
   String _emailPropietario = '';
   String _telefonoPropietario = '';
+  List<Map<String, dynamic>> _vacunas = [];
 
   @override
   void initState() {
@@ -48,7 +61,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Datos del propietario (guardados al iniciar sesión).
+      // Datos del propietario
       final usuarioStr = prefs.getString('petcard_usuario_actual');
       if (usuarioStr != null) {
         final usuario = jsonDecode(usuarioStr);
@@ -59,12 +72,18 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
         _telefonoPropietario = usuario['Telefono'] ?? usuario['telefono'] ?? '';
       }
 
-      // Mascotas reales del cliente logueado (mismo dato que "Mis mascotas").
-      final mascotas = await _api.obtenerMisMascotas();
-      if (mascotas.isNotEmpty) {
-        _mascota = mascotas.first;
-        final id = _mascota?['ID_mascota'];
-        _fotoPath = prefs.getString('foto_mascota_$id');
+      // Foto de la mascota específica
+      _fotoPath = prefs.getString('foto_mascota_${widget.idMascota}');
+
+      // Vacunas de esta mascota
+      final todasVacunas = await _api.obtenerVacunas();
+      _vacunas = todasVacunas
+          .where((v) => v['ID_mascota'] == widget.idMascota)
+          .toList();
+
+      // Si no hay vacunas, mostrar mensaje
+      if (_vacunas.isEmpty) {
+        _error = 'Esta mascota no tiene vacunas registradas aún.';
       }
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
@@ -75,11 +94,12 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     setState(() => _isLoading = false);
   }
 
-  // Calcula la edad en años a partir de "Fecha_nacimiento" (YYYY-MM-DD).
+  // ─── CALCULAR EDAD ───
   String _calcularEdad() {
-    final fechaRaw = _mascota?['Fecha_nacimiento'];
-    if (fechaRaw == null) return '—';
-    final nacimiento = DateTime.tryParse(fechaRaw.toString());
+    if (widget.fechaNacimiento == null || widget.fechaNacimiento!.isEmpty) {
+      return '—';
+    }
+    final nacimiento = DateTime.tryParse(widget.fechaNacimiento!);
     if (nacimiento == null) return '—';
     final ahora = DateTime.now();
     int anios = ahora.year - nacimiento.year;
@@ -89,13 +109,25 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     }
     if (anios < 0) return '—';
     if (anios == 0) return 'Menos de 1 año';
-    return anios == 1 ? '1 año' : '$anios años';
+    return '$anios años';
   }
 
+  // ─── FORMATEAR FECHA ───
+  String _formatearFecha(String? fecha) {
+    if (fecha == null || fecha.isEmpty) return '—';
+    try {
+      final dt = DateTime.parse(fecha);
+      const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+      return '${dt.day} ${meses[dt.month - 1]} ${dt.year}';
+    } catch (_) {
+      return fecha;
+    }
+  }
+
+  // ─── PDF ───
   Future<void> _descargarPDF() async {
     final pdf = pw.Document();
 
-    // Si la mascota tiene foto local, se incrusta en el PDF.
     pw.MemoryImage? fotoPdf;
     if (_fotoPath != null && _fotoPath!.isNotEmpty) {
       try {
@@ -130,15 +162,24 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                         ),
                         pw.SizedBox(height: 14),
                       ],
-                      pw.Text('Mascota: ${_mascota?['Nombre'] ?? 'Sin nombre'}', style: pw.TextStyle(fontSize: 18)),
-                      pw.Text('Especie: ${_mascota?['Especie'] ?? '-'}'),
-                      pw.Text('Raza: ${_mascota?['Raza'] ?? '-'}'),
+                      pw.Text('Mascota: ${widget.nombreMascota}', style: pw.TextStyle(fontSize: 18)),
+                      pw.Text('Especie: ${widget.especie}'),
+                      pw.Text('Raza: ${widget.raza}'),
                       pw.Text('Edad: ${_calcularEdad()}'),
-                      pw.Text('Peso: ${_mascota?['Peso'] ?? '-'} kg'),
+                      pw.Text('Peso: ${widget.peso} kg'),
                       pw.Divider(),
                       pw.Text('Propietario: $_nombrePropietario'),
                       pw.Text('Contacto: $_telefonoPropietario'),
                       pw.Text('Email: $_emailPropietario'),
+                      pw.Divider(),
+                      pw.Text('VACUNAS REGISTRADAS:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                      if (_vacunas.isEmpty)
+                        pw.Text('No hay vacunas registradas para esta mascota.')
+                      else
+                        ..._vacunas.map((v) => pw.Text(
+                          '• ${v['Nombre_vacuna'] ?? 'Sin nombre'} - ${_formatearFecha(v['Fecha_aplicacion'])}'
+                              '${v['Proxima_dosis'] != null ? ' (Próxima: ${_formatearFecha(v['Proxima_dosis'])})' : ''}',
+                        )),
                     ],
                   ),
                 ),
@@ -182,8 +223,6 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _mascota == null
-          ? _buildSinMascotas()
           : SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -198,7 +237,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '⚠️ No se pudieron cargar todos tus datos: $_error',
+                  '⚠️ ${_error ?? 'Error al cargar datos'}',
                   style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13),
                 ),
               ),
@@ -209,6 +248,18 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
             const SizedBox(height: 20),
             _buildCarnetCard(),
             const SizedBox(height: 24),
+
+            // Lista de vacunas
+            if (_vacunas.isNotEmpty) ...[
+              const Text(
+                'Vacunas Registradas',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 12),
+              ..._vacunas.map((v) => _buildVacunaCard(v)),
+              const SizedBox(height: 12),
+            ],
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -223,40 +274,14 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSinMascotas() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.pets, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            const Text(
-              'Aún no tienes mascotas registradas',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Registra tu primera mascota en "Mis mascotas" para generar su carnet digital.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Círculo con la foto real de la mascota (si existe una guardada en el
-  // dispositivo) o un ícono de respaldo cuando todavía no tiene foto.
+  // ─── CIRCULO DE FOTO ───
   Widget _buildAvatarMascota() {
     if (_fotoPath != null && _fotoPath!.isNotEmpty) {
       return ClipOval(
@@ -268,7 +293,10 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           errorBuilder: (context, error, stackTrace) => Container(
             width: 64,
             height: 64,
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
             child: const Icon(Icons.pets, color: kYellow, size: 36),
           ),
         ),
@@ -277,17 +305,31 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     return Container(
       width: 64,
       height: 64,
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+      ),
       child: const Icon(Icons.pets, color: kYellow, size: 36),
     );
   }
 
+  // ─── TARJETA CARRUSEL ───
   Widget _buildCarnetCard() {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF1E3A5F), Color(0xFF2D4A7A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E3A5F), Color(0xFF2D4A7A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: const Color(0xFF1E3A5F).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8))],
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E3A5F).withValues(alpha: 0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -295,8 +337,21 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(children: const [Icon(Icons.pets, color: kYellow, size: 24), SizedBox(width: 8), Text('PetCard', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))]),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: kSuccess, borderRadius: BorderRadius.circular(20)), child: const Text('VÁLIDO', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
+              Row(
+                children: const [
+                  Icon(Icons.pets, color: kYellow, size: 24),
+                  SizedBox(width: 8),
+                  Text('PetCard', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: kSuccess,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('VÁLIDO', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -308,8 +363,8 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_mascota?['Nombre'] ?? 'Sin nombre', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                    Text('${_mascota?['Especie'] ?? '-'} · ${_mascota?['Raza'] ?? '-'}', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
+                    Text(widget.nombreMascota, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                    Text('${widget.especie} · ${widget.raza}', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14)),
                   ],
                 ),
               ),
@@ -318,12 +373,15 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Column(
               children: [
-                _buildDetailRow('EDAD', _calcularEdad(), 'PESO', '${_mascota?['Peso'] ?? '-'} kg'),
+                _buildDetailRow('EDAD', _calcularEdad(), 'PESO', '${widget.peso} kg'),
                 const SizedBox(height: 12),
-                _buildDetailRow('RAZA', _mascota?['Raza'] ?? '-', 'SEXO', _mascota?['Sexo'] ?? '-'),
+                _buildDetailRow('RAZA', widget.raza, 'SEXO', widget.sexo),
               ],
             ),
           ),
@@ -331,25 +389,40 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: const [Icon(Icons.person, color: Colors.white60, size: 14), SizedBox(width: 4), Text('PROPIETARIO', style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold))]),
+                Row(
+                  children: const [
+                    Icon(Icons.person, color: Colors.white60, size: 14),
+                    SizedBox(width: 4),
+                    Text('PROPIETARIO', style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold)),
+                  ],
+                ),
                 const SizedBox(height: 4),
-                Text(_nombrePropietario.isEmpty ? '-' : _nombrePropietario, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text(
+                  _nombrePropietario.isEmpty ? '-' : _nombrePropietario,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
                 Row(
                   children: [
                     const Icon(Icons.phone, color: Colors.white60, size: 10),
                     const SizedBox(width: 4),
-                    Text(_telefonoPropietario.isEmpty ? '-' : _telefonoPropietario, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+                    Text(
+                      _telefonoPropietario.isEmpty ? '-' : _telefonoPropietario,
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+                    ),
                     const SizedBox(width: 12),
                     const Icon(Icons.email, color: Colors.white60, size: 10),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         _emailPropietario.isEmpty ? '-' : _emailPropietario,
-                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -364,10 +437,95 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   }
 
   Widget _buildDetailRow(String label1, String value1, String label2, String value2) {
-    return Row(children: [Expanded(child: _buildDetailItem(label1, value1)), Expanded(child: _buildDetailItem(label2, value2))]);
+    return Row(
+      children: [
+        Expanded(child: _buildDetailItem(label1, value1)),
+        Expanded(child: _buildDetailItem(label2, value2)),
+      ],
+    );
   }
 
   Widget _buildDetailItem(String label, String value) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: Colors.white60, fontSize: 8, fontWeight: FontWeight.bold)), Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 8, fontWeight: FontWeight.bold)),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  // ─── TARJETA DE VACUNA ───
+  Widget _buildVacunaCard(Map<String, dynamic> v) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: kBlue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.medical_services, color: kBlue, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  v['Nombre_vacuna'] ?? 'Vacuna',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                Text(
+                  'Aplicada: ${_formatearFecha(v['Fecha_aplicacion'])}'
+                      '${v['Proxima_dosis'] != null ? ' · Próxima: ${_formatearFecha(v['Proxima_dosis'])}' : ''}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                if (v['Lote'] != null && v['Lote'].toString().isNotEmpty)
+                  Text(
+                    'Lote: ${v['Lote']}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: (v['Estado'] == 'Aplicada' || v['Estado'] == 'Completada')
+                  ? const Color(0xFFDCFCE7)
+                  : const Color(0xFFFEF9C3),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              v['Estado'] ?? 'Pendiente',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: (v['Estado'] == 'Aplicada' || v['Estado'] == 'Completada')
+                    ? const Color(0xFF16A34A)
+                    : const Color(0xFFCA8A04),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
