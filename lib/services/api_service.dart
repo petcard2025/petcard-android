@@ -109,6 +109,7 @@ class ApiService {
   Future<Map<String, String>> _headersConToken() async {
     final token = await obtenerToken();
     if (token == null) {
+      print('DEBUG - Error: No se encontró token en el almacenamiento.');
       throw Exception('No hay sesión activa.');
     }
     return {
@@ -155,7 +156,7 @@ class ApiService {
     required String nombre,
     required String correo,
     required String contrasena,
-    String? telefono,
+    required String telefono,
     String rol = 'cliente',
   }) async {
     final response = await _client.post(
@@ -621,7 +622,7 @@ class ApiService {
   // ============================================================
   Map<String, dynamic> _parseBody(http.Response response) {
     try {
-      final decoded = jsonDecode(response.body);
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is Map<String, dynamic>) return decoded;
       return {};
     } catch (_) {

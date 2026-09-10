@@ -9,8 +9,8 @@ class AuthService {
   AuthService._internal();
 
   final ApiService _apiService = ApiService();
-
   Map<String, dynamic>? _usuarioActual;
+
   Map<String, dynamic>? get usuarioActual => _usuarioActual;
 
   Future<void> _persistirUsuario(Map<String, dynamic> usuario) async {
@@ -27,7 +27,9 @@ class AuthService {
     try {
       final respuesta = await _apiService.login(
         correo: email.trim(),
-        contrasena: password.trim(),
+        // La contraseña NUNCA se recorta: un espacio intencional
+        // es parte de la contraseña real del usuario.
+        contrasena: password,
       );
 
       final usuario = respuesta['usuario'] ?? respuesta['user'];
@@ -45,15 +47,15 @@ class AuthService {
     required String name,
     required String email,
     required String password,
-    String? telefono,
+    required String telefono,
     String? rol,
   }) async {
     try {
       return await _apiService.registrarUsuario(
         nombre: name.trim(),
         correo: email.trim(),
-        contrasena: password.trim(),
-        telefono: telefono,
+        contrasena: password,
+        telefono: telefono.trim(),
         rol: rol ?? 'cliente',
       );
     } catch (e) {
@@ -62,6 +64,8 @@ class AuthService {
   }
 
   /// ─── RECUPERAR CONTRASEÑA ───
+  /// ⚠️ El backend aún no envía correos reales — solo genera el
+  /// token (ver ApiService.solicitarRecuperacion).
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _apiService.solicitarRecuperacion(email.trim());
@@ -83,8 +87,10 @@ class AuthService {
     final token = await _apiService.obtenerToken();
     if (token == null) return false;
 
+    // Si ya tenemos el usuario en memoria, genial
     if (_usuarioActual != null) return true;
 
+    // Si no, intentamos cargarlo de SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('petcard_usuario_actual');
     if (userStr != null) {
@@ -100,9 +106,6 @@ class AuthService {
     if (limpio.contains('Correo o contrasena incorrectos')) {
       return 'Correo o contraseña incorrectos';
     }
-    if (limpio.contains('SocketException') || limpio.contains('Connection')) {
-      return 'Error de conexión a Internet';
-    }
     return limpio;
   }
 }
@@ -110,7 +113,6 @@ class AuthService {
 class AuthException implements Exception {
   final String message;
   AuthException(this.message);
-
   @override
   String toString() => message;
 }

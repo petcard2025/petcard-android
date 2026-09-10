@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
-import '../vete_screens/vet_dashboard_screen.dart';
+import 'vet_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,11 +23,29 @@ class _LoginScreenState extends State<LoginScreen> {
   static const Color kBlue = Color(0xFF3B82F6);
   static const Color kBlueDark = Color(0xFF2563EB);
 
+  // Regex de correo válido: algo@dominio.extensión
+  static final RegExp _emailRegex =
+  RegExp(r'^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$');
+
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  String? _validateEmail(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Ingresa tu correo';
+    if (!_emailRegex.hasMatch(v)) return 'Correo no válido';
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    final v = value ?? '';
+    if (v.isEmpty) return 'Ingresa tu contraseña';
+    if (v.length < 6) return 'Debe tener al menos 6 caracteres';
+    return null;
   }
 
   Future<void> _login() async {
@@ -36,22 +54,29 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.signIn(
-        email: _emailController.text,
+      final respuesta = await _authService.signIn(
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
       if (mounted) {
+        // Manejamos posibles variantes en el nombre del campo (usuario o user)
+        final usuarioRespuesta = respuesta['usuario'] ?? respuesta['user'];
+
+        if (usuarioRespuesta == null) {
+          throw Exception('La respuesta del servidor no contiene datos de usuario.');
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Inicio de sesión exitoso')),
         );
 
-        final usuario = _authService.usuarioActual;
-        final rol = (usuario?['Rol'] ?? usuario?['rol'] ?? '')
+        final usuario = _authService.usuarioActual ?? usuarioRespuesta;
+        final rol = (usuario['Rol'] ?? usuario['rol'] ?? '')
             .toString()
             .toLowerCase();
-        final nombre = usuario?['Nombre'] ?? 'Veterinario';
-        final idUsuario = usuario?['ID_usuario'];
+        final nombre = usuario['Nombre'] ?? 'Veterinario';
+        final idUsuario = usuario['ID_usuario'];
 
         if (rol == 'admin' || rol == 'administrador') {
           Navigator.pushReplacementNamed(context, '/admin');
@@ -77,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         } else {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacementNamed(context, '/mis-mascotas');
         }
       }
     } on AuthException catch (e) {
@@ -146,15 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 14),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ingresa tu correo';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Correo no válido';
-                        }
-                        return null;
-                      },
+                      validator: _validateEmail,
                     ),
                   ],
                 ),
@@ -257,6 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
               child: Form(
                 key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -272,6 +290,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         hintText: 'correo@ejemplo.com',
                         prefixIcon: const Icon(Icons.mail_outline, color: kBlue),
@@ -283,15 +302,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ingresa tu correo';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Correo no válido';
-                        }
-                        return null;
-                      },
+                      validator: _validateEmail,
                     ),
                     const SizedBox(height: 20),
 
@@ -330,15 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ingresa tu contraseña';
-                        }
-                        if (value.length < 6) {
-                          return 'Debe tener al menos 6 caracteres';
-                        }
-                        return null;
-                      },
+                      validator: _validatePassword,
                     ),
                     const SizedBox(height: 12),
 
