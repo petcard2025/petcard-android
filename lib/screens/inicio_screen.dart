@@ -4,11 +4,9 @@
 
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'carnet_digital.dart';
 
 class InicioScreen extends StatefulWidget {
-  // Callback opcional para cambiar de pestaña dentro de MainNavScreen
-  // (Citas = 1, Mis mascotas = 2, Perfil = 3) sin apilar una nueva
-  // pantalla ni perder la barra de navegación inferior.
   final void Function(int index)? onIrATab;
 
   const InicioScreen({super.key, this.onIrATab});
@@ -23,15 +21,12 @@ class _InicioScreenState extends State<InicioScreen> {
   // ============================================================
   static const Color kBlue = Color(0xFF2563EB);
   static const Color kBlueDark = Color(0xFF1D4ED8);
+  static const Color kGreen = Color(0xFF059669);
+  static const Color kGreenDark = Color(0xFF047857);
 
   // ============================================================
   // API Y ESTADO
   // ============================================================
-  // FIX: antes se leía de SharedPreferences ('petcard_mascotas' /
-  // 'petcard_citas'), claves que ningún otro archivo del proyecto
-  // llega a escribir. Ahora se usa ApiService, la misma fuente real
-  // (backend Node/Express + MySQL) que ya usan MisMascotasScreen y
-  // CitasScreen.
   final ApiService _api = ApiService();
 
   bool _isLoading = true;
@@ -48,7 +43,7 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // CARGA DE DATOS (desde la API / base de datos real)
+  // CARGA DE DATOS
   // ============================================================
   Future<void> _cargarDatos() async {
     setState(() {
@@ -57,22 +52,16 @@ class _InicioScreenState extends State<InicioScreen> {
     });
 
     try {
-      // 1. Usuario logueado (se lee directo del JWT, sin llamada extra)
       final miUsuario = await _api.obtenerMiUsuario();
       if (miUsuario == null) {
-        throw Exception('No hay sesión activa. Vuelve a iniciar sesión.');
+        throw Exception('No hay sesion activa. Vuelve a iniciar sesion.');
       }
       _nombre = miUsuario['Nombre'] ?? miUsuario['nombre'] ?? '';
 
-      // 2. ID_cliente del usuario logueado (se crea automáticamente si
-      //    todavía no existe, igual que en Mis Mascotas / Citas).
       final idCliente = await _api.obtenerIdClienteActual();
 
-      // 3. Mascotas reales del cliente
       _mascotas = await _api.obtenerMascotasPorCliente(idCliente);
 
-      // 4. Citas reales del cliente. El backend no filtra por cliente en
-      //    este endpoint, así que se filtra aquí (igual que en CitasScreen).
       final todasLasCitas = await _api.obtenerCitasAdmin();
       _citas = todasLasCitas
           .where((c) => c['ID_cliente'].toString() == idCliente.toString())
@@ -96,22 +85,18 @@ class _InicioScreenState extends State<InicioScreen> {
   // ============================================================
   String get _saludo {
     final hora = DateTime.now().hour;
-    if (hora < 12) return 'Buenos días';
+    if (hora < 12) return 'Buenos dias';
     if (hora < 18) return 'Buenas tardes';
     return 'Buenas noches';
   }
 
-  String get _numeroCarnet {
-    // ID generado a partir de las mascotas registradas.
-    // FIX: la clave real que devuelve la API es 'ID_mascota', no 'id'.
-    final primer =
-    _mascotas.isNotEmpty ? _mascotas.first['ID_mascota'].toString() : '';
+  String _generarNumeroCarnet(dynamic idMascota) {
+    final id = idMascota?.toString() ?? '';
     String digitos;
-    if (primer.isEmpty) {
+    if (id.isEmpty) {
       digitos = '000001';
     } else {
-      final relleno = primer.padLeft(6, '0');
-      // Tomamos siempre los últimos 6 caracteres del string ya rellenado
+      final relleno = id.padLeft(6, '0');
       digitos = relleno.length > 6
           ? relleno.substring(relleno.length - 6)
           : relleno;
@@ -120,7 +105,6 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   Map<String, dynamic>? get _proximaCita {
-    // FIX: el campo real es 'Estado' (mayúscula inicial), no 'estado'.
     for (final cita in _citas) {
       final estado = cita['Estado'] ?? '';
       if (estado == 'Pendiente' || estado == 'Confirmada') {
@@ -130,25 +114,52 @@ class _InicioScreenState extends State<InicioScreen> {
     return null;
   }
 
+  double _convertirPeso(dynamic pesoRaw) {
+    if (pesoRaw == null) return 0.0;
+    if (pesoRaw is double) return pesoRaw;
+    if (pesoRaw is int) return pesoRaw.toDouble();
+    if (pesoRaw is String) {
+      return double.tryParse(pesoRaw.replaceAll(',', '.')) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   // ============================================================
-  // NAVEGACIÓN (rutas usadas por el equipo)
+  // NAVEGACION
   // ============================================================
-  // Si estamos dentro de MainNavScreen (widget.onIrATab != null) cambiamos
-  // de pestaña para no perder la barra de navegación inferior. Si la
-  // pantalla se usa de forma independiente, caemos a la ruta con nombre.
   void _irAMascotas() => widget.onIrATab != null
       ? widget.onIrATab!(2)
       : Navigator.pushNamed(context, '/mis-mascotas');
+
   void _irACitas() => widget.onIrATab != null
       ? widget.onIrATab!(1)
       : Navigator.pushNamed(context, '/citas');
-  void _irACarnet() => Navigator.pushNamed(context, '/carnet');
+
   void _irAGestionServicios() =>
       Navigator.pushNamed(context, '/gestion-servicios');
+
   void _irANotificaciones() => Navigator.pushNamed(context, '/notificaciones');
+
   void _irAPerfil() => widget.onIrATab != null
       ? widget.onIrATab!(4)
       : Navigator.pushNamed(context, '/perfil');
+
+  void _irACarnet(Map<String, dynamic> mascota) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CarnetDigitalScreen(
+          idMascota: mascota['ID_mascota'] ?? 0,
+          nombreMascota: mascota['Nombre'] ?? 'Sin nombre',
+          especie: mascota['Especie'] ?? '',
+          raza: mascota['Raza'] ?? '',
+          sexo: mascota['Sexo'] ?? '',
+          peso: _convertirPeso(mascota['Peso']),
+          fechaNacimiento: mascota['Fecha_nacimiento'],
+        ),
+      ),
+    );
+  }
 
   // ============================================================
   // BUILD
@@ -193,59 +204,44 @@ class _InicioScreenState extends State<InicioScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ==========================================================
-              // BANNER DE BIENVENIDA
-              // ==========================================================
               _buildBannerBienvenida(),
-
               const SizedBox(height: 16),
 
-              // ==========================================================
-              // CARNET DESTACADO
-              // ==========================================================
-              _buildCarnetDestacado(),
+              // ─── SECCION: MIS CARNETS ───
+              if (_mascotas.isNotEmpty) ...[
+                _buildSeccionTitulo(
+                  icon: Icons.badge,
+                  titulo: 'Mis Carnets',
+                ),
+                const SizedBox(height: 10),
+                ..._mascotas.map((mascota) => _buildCarnetCard(mascota)),
+                const SizedBox(height: 16),
+              ] else ...[
+                _buildCarnetVacio(),
+                const SizedBox(height: 16),
+              ],
 
-              const SizedBox(height: 24),
-
-              // ==========================================================
-              // ACCIONES RÁPIDAS
-              // ==========================================================
               _buildSeccionTitulo(
                 icon: Icons.flash_on,
-                titulo: 'Acciones Rápidas',
+                titulo: 'Acciones Rapidas',
               ),
               const SizedBox(height: 12),
               _buildAccionesRapidas(),
-
               const SizedBox(height: 24),
-
-              // ==========================================================
-              // PRÓXIMA CITA
-              // ==========================================================
               _buildSeccionTitulo(
                 icon: Icons.event_available,
-                titulo: 'Próxima Cita',
+                titulo: 'Proxima Cita',
               ),
               const SizedBox(height: 12),
               _buildProximaCita(),
-
               const SizedBox(height: 24),
-
-              // ==========================================================
-              // ESTADÍSTICAS
-              // ==========================================================
               _buildSeccionTitulo(
                 icon: Icons.analytics,
-                titulo: 'Estadísticas',
+                titulo: 'Estadisticas',
               ),
               const SizedBox(height: 12),
               _buildEstadisticas(),
-
               const SizedBox(height: 32),
-
-              // ==========================================================
-              // FOOTER
-              // ==========================================================
               _buildFooter(),
             ],
           ),
@@ -255,7 +251,7 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // WIDGETS - ESTADO DE ERROR (sesión caída, sin conexión, etc.)
+  // WIDGETS - ESTADO DE ERROR
   // ============================================================
   Widget _buildErrorState() {
     return Center(
@@ -298,7 +294,7 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // WIDGETS - BANNER DE BIENVENIDA
+  // WIDGETS - BANNER DE BIENVENIDA (AZUL)
   // ============================================================
   Widget _buildBannerBienvenida() {
     return InkWell(
@@ -323,7 +319,7 @@ class _InicioScreenState extends State<InicioScreen> {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.person, color: Colors.white, size: 28),
@@ -336,13 +332,11 @@ class _InicioScreenState extends State<InicioScreen> {
                       Text(
                         '$_saludo,',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 14,
                         ),
                       ),
                       Text(
-                        // FIX: el backend solo maneja 'Nombre' (nombre
-                        // completo), no existe un campo 'Apellido' aparte.
                         _nombre.isNotEmpty ? _nombre : 'Bienvenido/a',
                         style: const TextStyle(
                           color: Colors.white,
@@ -359,9 +353,9 @@ class _InicioScreenState extends State<InicioScreen> {
             ),
             const SizedBox(height: 14),
             Text(
-              'Tu mascota te está esperando',
+              'Tu mascota te esta esperando',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 fontSize: 14,
               ),
             ),
@@ -372,121 +366,96 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // WIDGETS - CARNET DESTACADO
+  // WIDGETS - CARNET PEQUEÑO (VERDE)
   // ============================================================
-  Widget _buildCarnetDestacado() {
-    final mascota = _mascotas.isNotEmpty ? _mascotas.first : null;
+  Widget _buildCarnetCard(Map<String, dynamic> mascota) {
+    final nombre = mascota['Nombre'] ?? 'Mascota';
+    final especie = mascota['Especie'] ?? '';
+    final raza = mascota['Raza'] ?? '';
+    final id = mascota['ID_mascota'];
 
-    return InkWell(
-      onTap: _irACarnet,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [kBlue, kBlueDark],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: kBlue.withOpacity(0.3),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [kGreen, kGreenDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: kGreen.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () => _irACarnet(mascota),
+        borderRadius: BorderRadius.circular(12),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(10),
+            // Icono
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.pets, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+
+            // Informacion
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    nombre,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  child: const Icon(Icons.badge, color: Colors.white, size: 22),
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'CARNET PetCard',
+                  Text(
+                    '$especie • $raza',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+
+            // Numero de carnet y flecha
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _generarNumeroCarnet(id),
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.bold,
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,
                   ),
                 ),
-                const Spacer(),
-                const Icon(Icons.nfc, color: Colors.white70, size: 22),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (mascota != null) ...[
-              // FIX: campos reales de la API son 'Nombre', 'Especie' y
-              // 'Raza' (con mayúscula inicial), no 'nombre'/'especie'/'raza'.
-              Text(
-                '${mascota['Nombre'] ?? 'Mascota'}',
-                style: const TextStyle(
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.chevron_right,
                   color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${mascota['Especie'] ?? ''} • ${mascota['Raza'] ?? ''}',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.85),
-                  fontSize: 14,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ] else ...[
-              const Text(
-                'Tu carnet digital',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Registra tu primera mascota para generar tu carnet',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.85),
-                  fontSize: 13,
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _numeroCarnet,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const Text(
-                  'Ver carnet ›',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  size: 20,
                 ),
               ],
             ),
@@ -497,7 +466,74 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // WIDGETS - TÍTULO DE SECCIÓN
+  // WIDGETS - CARNET VACIO
+  // ============================================================
+  Widget _buildCarnetVacio() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [kGreen, kGreenDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: kGreen.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.badge, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Sin mascotas',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Registra tu primera mascota',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _irAMascotas,
+            icon: const Icon(Icons.add, color: Colors.white, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // WIDGETS - TITULO DE SECCION
   // ============================================================
   Widget _buildSeccionTitulo({
     required IconData icon,
@@ -520,7 +556,7 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // WIDGETS - ACCIONES RÁPIDAS
+  // WIDGETS - ACCIONES RAPIDAS
   // ============================================================
   Widget _buildAccionesRapidas() {
     final acciones = [
@@ -540,7 +576,13 @@ class _InicioScreenState extends State<InicioScreen> {
         icon: Icons.medical_services,
         label: 'Carnet de Vacunas',
         color: const Color(0xFF10B981),
-        onTap: _irACarnet,
+        onTap: () {
+          if (_mascotas.isNotEmpty) {
+            _irACarnet(_mascotas.first);
+          } else {
+            _irAMascotas();
+          }
+        },
       ),
       _Accion(
         icon: Icons.notifications,
@@ -556,13 +598,6 @@ class _InicioScreenState extends State<InicioScreen> {
       ),
     ];
 
-    // FIX: BOTTOM OVERFLOWED BY 3.6 PIXELS
-    // Se reemplaza GridView.count (con childAspectRatio) por
-    // GridView.builder + SliverGridDelegateWithFixedCrossAxisCount usando
-    // mainAxisExtent. Esto da una altura FIJA y con margen suficiente para
-    // que quepan el ícono + una etiqueta de hasta 2 líneas (ej. "Carnet de
-    // Vacunas"), sin depender de un aspect ratio calculado que puede
-    // quedarse corto según el ancho de pantalla.
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -570,7 +605,7 @@ class _InicioScreenState extends State<InicioScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        mainAxisExtent: 118, // altura fija de cada tarjeta
+        mainAxisExtent: 118,
       ),
       itemCount: acciones.length,
       itemBuilder: (context, index) => _buildAccionCard(acciones[index]),
@@ -599,7 +634,7 @@ class _InicioScreenState extends State<InicioScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: accion.color.withOpacity(0.1),
+                  color: accion.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(accion.icon, color: accion.color, size: 22),
@@ -623,7 +658,7 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // WIDGETS - PRÓXIMA CITA
+  // WIDGETS - PROXIMA CITA
   // ============================================================
   Widget _buildProximaCita() {
     final cita = _proximaCita;
@@ -637,7 +672,7 @@ class _InicioScreenState extends State<InicioScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -648,7 +683,7 @@ class _InicioScreenState extends State<InicioScreen> {
             Icon(Icons.event_busy, size: 40, color: Colors.grey[300]),
             const SizedBox(height: 8),
             Text(
-              'No tienes citas próximas',
+              'No tienes citas proximas',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[600],
@@ -665,9 +700,6 @@ class _InicioScreenState extends State<InicioScreen> {
       );
     }
 
-    // FIX: los campos reales que devuelve la API de citas son
-    // 'Nombre_servicio', 'Nombre_mascota', 'Fecha' y 'Hora'
-    // (ver citas_screen.dart _buildCitaCard), no 'servicio'/'mascota'.
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -675,7 +707,7 @@ class _InicioScreenState extends State<InicioScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -687,7 +719,7 @@ class _InicioScreenState extends State<InicioScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: kBlue.withOpacity(0.1),
+              color: kBlue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -746,14 +778,12 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   // ============================================================
-  // WIDGETS - ESTADÍSTICAS
+  // WIDGETS - ESTADISTICAS
   // ============================================================
   Widget _buildEstadisticas() {
-    // FIX: campo real es 'Estado' (mayúscula inicial).
     final citasActivas = _citas
         .where(
-          (c) =>
-      (c['Estado'] == 'Pendiente' || c['Estado'] == 'Confirmada'),
+          (c) => (c['Estado'] == 'Pendiente' || c['Estado'] == 'Confirmada'),
     )
         .length;
 
@@ -764,7 +794,7 @@ class _InicioScreenState extends State<InicioScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -778,7 +808,7 @@ class _InicioScreenState extends State<InicioScreen> {
             icon: Icons.pets,
           ),
           _buildEstadisticaRow(
-            label: 'Citas próximas',
+            label: 'Citas proximas',
             value: '$citasActivas',
             icon: Icons.event_available,
           ),
@@ -843,7 +873,7 @@ class _InicioScreenState extends State<InicioScreen> {
           Icon(Icons.pets, color: Colors.grey, size: 20),
           SizedBox(height: 8),
           Text(
-            '© 2024 PetCard. Todos los derechos reservados.',
+            '© 2026 PetCard. Todos los derechos reservados.',
             style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ],
@@ -853,7 +883,7 @@ class _InicioScreenState extends State<InicioScreen> {
 }
 
 // ============================================================
-// MODELO INTERNO DE ACCIÓN
+// MODELO INTERNO DE ACCION
 // ============================================================
 class _Accion {
   final IconData icon;

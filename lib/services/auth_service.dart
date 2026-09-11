@@ -31,7 +31,9 @@ class AuthService {
     try {
       final respuesta = await _apiService.login(
         correo: email.trim(),
-        contrasena: password.trim(),
+        // La contraseña NUNCA se recorta: un espacio intencional
+        // es parte de la contraseña real del usuario.
+        contrasena: password,
       );
 
       final usuario = respuesta['usuario'] ?? respuesta['user'];
@@ -56,7 +58,7 @@ class AuthService {
       return await _apiService.registrarUsuario(
         nombre: name.trim(),
         correo: email.trim(),
-        contrasena: password.trim(),
+        contrasena: password,
         telefono: telefono,
         rol: rol ?? 'cliente',
       );

@@ -23,6 +23,10 @@ class _CitasScreenState extends State<CitasScreen> {
   List<Map<String, dynamic>> _mascotas = [];
   bool _mostrarFormulario = false;
 
+  // Buscador y filtro por estado (solo aplican cuando _verTodas es true)
+  String _busqueda = '';
+  String _filtroEstado = 'Todos';
+
   final ApiService _api = ApiService();
 
   // ID_cliente (backend) del usuario logueado
@@ -432,6 +436,15 @@ class _CitasScreenState extends State<CitasScreen> {
     );
     if (!mounted) return;
     if (hora != null) {
+      if (hora.hour < 8 || hora.hour > 16) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('El horario de atención es de 8:00 a.m. a 4:00 p.m.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
       setState(() => _horaSeleccionada = hora);
     }
   }
@@ -460,6 +473,16 @@ class _CitasScreenState extends State<CitasScreen> {
     if (horaRaw == null) return '';
     final str = horaRaw.toString();
     return str.length >= 5 ? str.substring(0, 5) : str;
+  }
+
+  // Solo se muestran / permiten citas entre las 8:00 a.m. y las 4:00 p.m.
+  bool _horaDentroDeHorario(dynamic horaRaw) {
+    if (horaRaw == null) return false;
+    final partes = horaRaw.toString().split(':');
+    if (partes.isEmpty) return false;
+    final hora = int.tryParse(partes[0]);
+    if (hora == null) return false;
+    return hora >= 8 && hora <= 16;
   }
 
   // ============================================================
@@ -670,11 +693,14 @@ class _CitasScreenState extends State<CitasScreen> {
               // ========================================================
               // LISTA DE CITAS: solo se muestra si _verTodas es true
               // ========================================================
-              if (_verTodas)
-                if (_citas.isEmpty)
+              if (_verTodas) ...[
+                _buildBuscadorYFiltro(),
+                const SizedBox(height: 16),
+                if (_citasFiltradas.isEmpty)
                   _buildEmptyState()
                 else
-                  ..._citas.map((cita) => _buildCitaCard(cita)),
+                  ..._citasFiltradas.map((cita) => _buildCitaCard(cita)),
+              ],
             ],
           ],
         ),
@@ -1129,6 +1155,78 @@ class _CitasScreenState extends State<CitasScreen> {
   // ============================================================
   // WIDGET - TARJETA DE CITA
   // ============================================================
+  // Aplica el texto de búsqueda y el filtro de estado a la lista de citas.
+  List<Map<String, dynamic>> get _citasFiltradas {
+    return _citas.where((c) {
+      final texto = '${c['Nombre_mascota'] ?? ''} ${c['Nombre_servicio'] ?? ''} ${c['Nombre_veterinario'] ?? ''}'
+          .toLowerCase();
+      final coincideBusqueda = texto.contains(_busqueda.toLowerCase());
+      final estado = (c['Estado'] ?? 'Pendiente').toString();
+      final coincideEstado = _filtroEstado == 'Todos' || estado == _filtroEstado;
+      final dentroDeHorario = _horaDentroDeHorario(c['Hora']);
+      return coincideBusqueda && coincideEstado && dentroDeHorario;
+    }).toList();
+  }
+
+  Widget _buildBuscadorYFiltro() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          onChanged: (v) => setState(() => _busqueda = v),
+          decoration: InputDecoration(
+            hintText: 'Buscar por mascota, servicio o veterinario...',
+            prefixIcon: const Icon(Icons.search, size: 20),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: kAzul, width: 2),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _estados.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final estado = i == 0 ? 'Todos' : _estados[i - 1];
+              final activo = _filtroEstado == estado;
+              return ChoiceChip(
+                label: Text(estado),
+                selected: activo,
+                onSelected: (_) => setState(() => _filtroEstado = estado),
+                selectedColor: kAzul,
+                backgroundColor: Colors.white,
+                labelStyle: TextStyle(
+                  color: activo ? Colors.white : Colors.grey[700],
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: activo ? kAzul : Colors.grey[300]!),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCitaCard(Map<String, dynamic> cita) {
     final estado = cita['Estado'] ?? 'Pendiente';
     final colorEstado = _colorEstado(estado);

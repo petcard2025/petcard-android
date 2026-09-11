@@ -11,8 +11,8 @@ class ApiService {
   // Lista de IPs conocidas de tu laptop (la más reciente primero), usada
   // solo como respaldo automático si NO hay una IP manual configurada.
   static const List<String> _ipsConocidas = [
-    '172.20.10.2',      // Red actual (más reciente)
-    '192.168.137.165', // Hotspot móvil
+    '192.168.137.246',      // Red actual (más reciente)
+    '172.20.10.3', // Hotspot móvil
     '192.168.80.15',   // WiFi de casa
   ];
 
@@ -620,7 +620,7 @@ class ApiService {
       headers: headers,
     );
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      final decoded = jsonDecode(response.body);
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       final horas = decoded['horasOcupadas'];
       if (horas is List) return horas.map((e) => e.toString()).toList();
     }
@@ -694,7 +694,9 @@ class ApiService {
   // ============================================================
   Map<String, dynamic> _parseBody(http.Response response) {
     try {
-      final decoded = jsonDecode(response.body);
+      // Decodificamos como UTF-8 explícitamente (no response.body a secas)
+      // para que tildes y ñ que vienen del backend no lleguen corruptas.
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is Map<String, dynamic>) return decoded;
       return {};
     } catch (_) {
@@ -708,7 +710,7 @@ class ApiService {
       ) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       try {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic>) return decoded;
         return {};
       } catch (_) {
@@ -725,7 +727,7 @@ class ApiService {
       ) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       try {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is List) {
           return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
         }

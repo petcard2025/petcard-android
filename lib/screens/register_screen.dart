@@ -23,6 +23,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static const Color kBlue = Color(0xFF2563EB);
   static const Color kBlueDark = Color(0xFF2563EB);
 
+  // Solo letras (incluye tildes y ñ) y espacios; al menos nombre y "algo más"
+  static final RegExp _nameRegex =
+  RegExp(r"^[a-zA-ZÀ-ÖØ-öø-ÿ]+(?:\s[a-zA-ZÀ-ÖØ-öø-ÿ]+)+$");
+  // Correo con formato algo@dominio.extensión
+  static final RegExp _emailRegex =
+  RegExp(r'^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$');
+  // Celular colombiano: 10 dígitos, empieza en 3
+  static final RegExp _phoneRegex = RegExp(r'^3\d{9}$');
+  // Reglas de contraseña
+  static final RegExp _hasLetter = RegExp(r'[a-zA-Z]');
+  static final RegExp _hasUpper = RegExp(r'[A-Z]');
+  static final RegExp _hasDigit = RegExp(r'[0-9]');
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -33,6 +46,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  String? _validateName(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Ingresa tu nombre';
+    if (v.length < 3) return 'El nombre es muy corto';
+    if (!_nameRegex.hasMatch(v)) {
+      return 'Ingresa tu nombre y apellido, solo letras';
+    }
+    return null;
+  }
+
+  String? _validateEmail(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Ingresa tu correo';
+    if (!_emailRegex.hasMatch(v)) return 'Correo no válido';
+    return null;
+  }
+
+  // El teléfono sigue siendo opcional (la base de datos admite Telefono
+  // nulo), pero si el usuario escribe algo, validamos que tenga formato
+  // de celular colombiano válido.
+  String? _validatePhone(String? value) {
+    final v = (value ?? '').trim().replaceAll(RegExp(r'[\s\-().]'), '');
+    if (v.isEmpty) return null;
+    if (!_phoneRegex.hasMatch(v)) {
+      return 'Ingresa un celular válido (10 dígitos, ej: 3001234567)';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    final v = value ?? '';
+    if (v.isEmpty) return 'Ingresa tu contraseña';
+    if (v.length < 6) return 'Debe tener al menos 6 caracteres';
+    if (!_hasUpper.hasMatch(v)) return 'Debe incluir al menos una mayúscula';
+    if (!_hasLetter.hasMatch(v) || !_hasDigit.hasMatch(v)) {
+      return 'Debe incluir al menos una letra y un número';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    final v = value ?? '';
+    if (v.isEmpty) return 'Confirma tu contraseña';
+    if (v != _passwordController.text) return 'Las contraseñas no coinciden';
+    return null;
+  }
+
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -40,10 +100,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       await _authService.signUp(
-        name: _nameController.text,
-        email: _emailController.text,
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
         password: _passwordController.text,
-        telefono: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+        telefono: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim().replaceAll(RegExp(r'[\s\-().]'), ''),
       );
 
       if (mounted) {
@@ -134,6 +196,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
               child: Form(
                 key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -149,8 +212,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _nameController,
+                      keyboardType: TextInputType.name,
+                      textCapitalization: TextCapitalization.words,
                       decoration: InputDecoration(
-                        hintText: 'Tu nombre',
+                        hintText: 'Tu nombre y apellido',
                         prefixIcon: const Icon(Icons.person_outline, color: kBlue),
                         filled: true,
                         fillColor: const Color(0xFFF3F4F6),
@@ -160,12 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ingresa tu nombre';
-                        }
-                        return null;
-                      },
+                      validator: _validateName,
                     ),
                     const SizedBox(height: 20),
 
@@ -193,15 +253,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ingresa tu correo';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Correo no válido';
-                        }
-                        return null;
-                      },
+                      validator: _validateEmail,
                     ),
                     const SizedBox(height: 20),
 
@@ -218,8 +270,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      maxLength: 10,
                       decoration: InputDecoration(
-                        hintText: '300 123 4567',
+                        hintText: '3001234567',
+                        counterText: '',
                         prefixIcon: const Icon(Icons.phone_outlined, color: kBlue),
                         filled: true,
                         fillColor: const Color(0xFFF3F4F6),
@@ -229,8 +283,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      // Opcional: no se valida como obligatorio porque en la
-                      // base de datos el campo Telefono admite valor nulo.
+                      // Sigue siendo opcional (la base de datos admite
+                      // Telefono nulo), pero si se escribe algo, se valida
+                      // que tenga formato de celular colombiano.
+                      validator: _validatePhone,
                     ),
                     const SizedBox(height: 20),
 
@@ -268,15 +324,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           borderSide: BorderSide.none,
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        helperText: 'Mínimo 6 caracteres: 1 mayúscula y 1 número',
+                        helperMaxLines: 2,
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ingresa tu contraseña';
+                      validator: _validatePassword,
+                      // Revalida la confirmación cuando cambia la contraseña
+                      onChanged: (_) {
+                        if (_confirmPasswordController.text.isNotEmpty) {
+                          _formKey.currentState?.validate();
                         }
-                        if (value.length < 6) {
-                          return 'Debe tener al menos 6 caracteres';
-                        }
-                        return null;
                       },
                     ),
                     const SizedBox(height: 20),
@@ -317,12 +373,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      validator: (value) {
-                        if (value != _passwordController.text) {
-                          return 'Las contraseñas no coinciden';
-                        }
-                        return null;
-                      },
+                      validator: _validateConfirmPassword,
                     ),
                     const SizedBox(height: 28),
 

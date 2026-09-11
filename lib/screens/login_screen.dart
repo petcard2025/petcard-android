@@ -23,11 +23,29 @@ class _LoginScreenState extends State<LoginScreen> {
   static const Color kBlue = Color(0xFF2563EB);
   static const Color kBlueDark = Color(0xFF2563EB);
 
+  // Regex de correo válido: algo@dominio.extensión
+  static final RegExp _emailRegex =
+  RegExp(r'^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$');
+
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  String? _validateEmail(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Ingresa tu correo';
+    if (!_emailRegex.hasMatch(v)) return 'Correo no válido';
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    final v = value ?? '';
+    if (v.isEmpty) return 'Ingresa tu contraseña';
+    if (v.length < 6) return 'Debe tener al menos 6 caracteres';
+    return null;
   }
 
   Future<void> _mostrarDialogoConfigurarIp() async {
@@ -339,6 +357,7 @@ class _LoginScreenState extends State<LoginScreen> {
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
               child: Form(
                 key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -354,6 +373,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         hintText: 'correo@ejemplo.com',
                         prefixIcon: const Icon(Icons.mail_outline, color: kBlue),
@@ -365,15 +385,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ingresa tu correo';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Correo no válido';
-                        }
-                        return null;
-                      },
+                      validator: _validateEmail,
                     ),
                     const SizedBox(height: 20),
                     const Text(
@@ -411,15 +423,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ingresa tu contraseña';
-                        }
-                        if (value.length < 6) {
-                          return 'Debe tener al menos 6 caracteres';
-                        }
-                        return null;
-                      },
+                      validator: _validatePassword,
                     ),
                     const SizedBox(height: 12),
 
