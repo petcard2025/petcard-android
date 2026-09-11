@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
+import 'reset_password_screen.dart';
 import '../vete_screens/vet_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -96,7 +97,10 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authService.sendPasswordResetEmail(email);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Enviamos un enlace de recuperación a $email')),
+          SnackBar(
+            content: Text('Se envió un correo a $email. Revisa tu bandeja (y SPAM).'),
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     } on AuthException catch (e) {
@@ -105,6 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(content: Text(e.message)),
         );
       }
+      rethrow;
     }
   }
 
@@ -128,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.',
+                      'Ingresa tu correo y te enviaremos un token para restablecer tu contraseña.',
                       style: TextStyle(fontSize: 13, color: Colors.black54),
                     ),
                     const SizedBox(height: 16),
@@ -174,9 +179,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       : () async {
                     if (!dialogFormKey.currentState!.validate()) return;
                     setDialogState(() => isSending = true);
-                    await _sendPasswordResetEmail(
-                        resetEmailController.text.trim());
-                    if (context.mounted) Navigator.pop(context);
+
+                    final correo = resetEmailController.text.trim();
+                    try {
+                      await _sendPasswordResetEmail(correo);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ResetPasswordScreen(correoInicial: correo),
+                          ),
+                        );
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        setDialogState(() => isSending = false);
+                      }
+                    }
                   },
                   child: isSending
                       ? const SizedBox(
@@ -205,7 +225,6 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header azul con curva inferior
             ClipPath(
               clipper: _BottomCurveClipper(),
               child: Container(
@@ -243,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       'Tu mascota te está esperando',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 15,
                       ),
                     ),
@@ -252,7 +271,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            // Formulario
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
               child: Form(
@@ -342,7 +360,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Recuérdame + Olvidaste tu contraseña
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -386,7 +403,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Botón Iniciar sesión
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -420,7 +436,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Divider "o continúa con"
                     Row(
                       children: [
                         const Expanded(child: Divider(color: Color(0xFFE5E7EB))),
@@ -436,7 +451,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Botones sociales
                     Row(
                       children: [
                         Expanded(
@@ -476,7 +490,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Link a registro
                     Center(
                       child: RichText(
                         text: TextSpan(
@@ -518,7 +531,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// Clipper para la curva inferior del header azul
 class _BottomCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

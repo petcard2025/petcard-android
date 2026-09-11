@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 
 class AuthService {
-  // Patrón Singleton
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
   AuthService._internal();
@@ -19,7 +18,6 @@ class AuthService {
     _usuarioActual = usuario;
   }
 
-  /// ─── LOGIN ───
   Future<Map<String, dynamic>> signIn({
     required String email,
     required String password,
@@ -40,7 +38,6 @@ class AuthService {
     }
   }
 
-  /// ─── REGISTRO ───
   Future<Map<String, dynamic>> signUp({
     required String name,
     required String email,
@@ -61,7 +58,7 @@ class AuthService {
     }
   }
 
-  /// ─── RECUPERAR CONTRASEÑA ───
+  /// ─── RECUPERAR CONTRASEÑA (envía correo con código) ───
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _apiService.solicitarRecuperacion(email.trim());
@@ -70,7 +67,23 @@ class AuthService {
     }
   }
 
-  /// ─── CERRAR SESIÓN ───
+  /// ─── RESTABLECER CONTRASEÑA (con código de 6 dígitos) ───
+  Future<void> resetPassword({
+    required String correo,
+    required String codigo,
+    required String nuevaContrasena,
+  }) async {
+    try {
+      await _apiService.resetPassword(
+        correo: correo.trim(),
+        codigo: codigo.trim(),
+        nuevaContrasena: nuevaContrasena.trim(),
+      );
+    } catch (e) {
+      throw AuthException(_mensajeAmigable(e.toString()));
+    }
+  }
+
   Future<void> signOut() async {
     await _apiService.logout();
     final prefs = await SharedPreferences.getInstance();
@@ -78,7 +91,6 @@ class AuthService {
     _usuarioActual = null;
   }
 
-  /// ─── VERIFICAR SESIÓN ACTIVA ───
   Future<bool> haySesionActiva() async {
     final token = await _apiService.obtenerToken();
     if (token == null) return false;
