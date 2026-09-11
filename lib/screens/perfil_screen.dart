@@ -380,7 +380,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      _rol[0].toUpperCase() + _rol.substring(1),
+                      _rol.isNotEmpty
+                          ? _rol[0].toUpperCase() + _rol.substring(1)
+                          : 'Cliente',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.85),
                         fontSize: 13,
