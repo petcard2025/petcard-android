@@ -1,8 +1,54 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
+// ============================================================
+// CONTROLADOR COMPARTIDO ENTRE PESTAÑAS
+// ============================================================
+// Permite que otra pantalla (por ejemplo, Servicios) le pida a la
+// pestaña de Citas que abra el formulario con un servicio ya
+// seleccionado, SIN necesidad de navegar a una pantalla nueva
+// (Navigator.push). Así la barra de navegación inferior nunca
+// desaparece, porque seguimos dentro del mismo MainNavScreen y solo
+// cambiamos el índice de la pestaña activa.
+class CitasTabController extends ChangeNotifier {
+  String? servicioPendiente;
+  bool abrirFormularioPendiente = false;
+
+  void solicitarNuevaCita(String nombreServicio) {
+    servicioPendiente = nombreServicio;
+    abrirFormularioPendiente = true;
+    notifyListeners();
+  }
+
+  void limpiarPendiente() {
+    servicioPendiente = null;
+    abrirFormularioPendiente = false;
+  }
+}
+
 class CitasScreen extends StatefulWidget {
-  const CitasScreen({super.key});
+  // Nombre del servicio que se debe dejar preseleccionado en el formulario
+  // (por ejemplo, cuando se llega desde la tarjeta de un servicio en el
+  // módulo de Servicios). Si no coincide con ningún servicio real del
+  // backend, simplemente se ignora y el usuario elige manualmente.
+  final String? servicioPreseleccionado;
+
+  // Si es true, el formulario de "Nueva cita" se abre automáticamente
+  // al entrar a esta pantalla, en vez de mostrar primero la lista.
+  final bool abrirFormulario;
+
+  // Controlador opcional: cuando CitasScreen vive dentro de
+  // MainNavScreen (como una pestaña permanente), este controlador es
+  // la vía para recibir "abre el formulario con este servicio" desde
+  // otra pestaña, sin recrear la pantalla ni perder la barra inferior.
+  final CitasTabController? controller;
+
+  const CitasScreen({
+    super.key,
+    this.servicioPreseleccionado,
+    this.abrirFormulario = false,
+    this.controller,
+  });
 
   @override
   State<CitasScreen> createState() => _CitasScreenState();
@@ -60,19 +106,72 @@ class _CitasScreenState extends State<CitasScreen> {
   // Última cita creada (para mostrar la confirmación tras agendar)
   Map<String, dynamic>? _citaRecienCreada;
 
+  // Si llega una solicitud desde otra pestaña (controller) mientras
+  // _cargarDatos() todavía está en curso, la guardamos aquí para
+  // aplicarla apenas termine de cargar el catálogo de servicios.
+  String? _servicioPendienteDeCarga;
+  bool _abrirFormularioPendienteDeCarga = false;
+
   // ============================================================
   // CICLO DE VIDA
   // ============================================================
   @override
   void initState() {
     super.initState();
+    widget.controller?.addListener(_onSolicitudDesdeOtraPestana);
     _cargarDatos();
   }
 
   @override
   void dispose() {
+    widget.controller?.removeListener(_onSolicitudDesdeOtraPestana);
     _notasController.dispose();
     super.dispose();
+  }
+
+  // Se dispara cuando, estando en otra pestaña (por ejemplo Servicios),
+  // el usuario elige un servicio y pide agendar una cita. Como esta
+  // pantalla ya existe (vive dentro del IndexedStack de MainNavScreen),
+  // no hay que navegar a ningún lado: solo aplicamos la preselección
+  // y abrimos el formulario aquí mismo.
+  void _onSolicitudDesdeOtraPestana() {
+    final controller = widget.controller;
+    if (controller == null || !controller.abrirFormularioPendiente) return;
+
+    final servicioPedido = controller.servicioPendiente;
+    controller.limpiarPendiente();
+
+    if (!mounted) return;
+
+    if (_isLoading || _servicios.isEmpty) {
+      // El catálogo de servicios todavía no ha terminado de cargar;
+      // guardamos el pedido y lo aplicamos apenas termine _cargarDatos().
+      _servicioPendienteDeCarga = servicioPedido;
+      _abrirFormularioPendienteDeCarga = true;
+      return;
+    }
+
+    _aplicarPreseleccionYAbrirFormulario(servicioPedido);
+  }
+
+  // Aplica el nombre de servicio recibido (si coincide con el catálogo
+  // real) y abre el formulario de nueva cita.
+  void _aplicarPreseleccionYAbrirFormulario(String? nombreServicio) {
+    setState(() {
+      if (nombreServicio != null) {
+        final buscado = nombreServicio.trim().toLowerCase();
+        final coincidencia = _servicios.firstWhere(
+              (s) => s['Nombre'].toString().trim().toLowerCase() == buscado,
+          orElse: () => {},
+        );
+        if (coincidencia.isNotEmpty) {
+          _servicioSeleccionado = coincidencia['Nombre'].toString();
+        }
+      }
+      _editando = false;
+      _citaEditando = null;
+      _mostrarFormulario = true;
+    });
   }
 
   // ============================================================
@@ -116,6 +215,37 @@ class _CitasScreenState extends State<CitasScreen> {
       // 5. Catálogo real de servicios y veterinarios de la clínica
       _servicios = await _api.obtenerServicios();
       _veterinarios = await _api.obtenerVeterinarios();
+
+      // 6. Preselección de servicio + apertura automática del formulario.
+      //    Puede venir de dos vías (da igual cuál, se resuelven igual):
+      //    a) el constructor (widget.servicioPreseleccionado/abrirFormulario),
+      //       usado cuando esta pantalla se abre directamente ya con un
+      //       servicio en mente.
+      //    b) una solicitud del controller que llegó desde otra pestaña
+      //       (por ejemplo, Servicios) mientras este _cargarDatos()
+      //       todavía estaba en curso.
+      final servicioAPreseleccionar =
+          _servicioPendienteDeCarga ?? widget.servicioPreseleccionado;
+      final debeAbrirFormulario =
+          _abrirFormularioPendienteDeCarga || widget.abrirFormulario;
+
+      _servicioPendienteDeCarga = null;
+      _abrirFormularioPendienteDeCarga = false;
+
+      if (servicioAPreseleccionar != null) {
+        final buscado = servicioAPreseleccionar.trim().toLowerCase();
+        final coincidencia = _servicios.firstWhere(
+              (s) => s['Nombre'].toString().trim().toLowerCase() == buscado,
+          orElse: () => {},
+        );
+        if (coincidencia.isNotEmpty) {
+          _servicioSeleccionado = coincidencia['Nombre'].toString();
+        }
+      }
+
+      if (debeAbrirFormulario) {
+        _mostrarFormulario = true;
+      }
     } catch (e) {
       debugPrint('Error cargando citas: $e');
       if (mounted) {
@@ -125,6 +255,82 @@ class _CitasScreenState extends State<CitasScreen> {
 
     if (!mounted) return;
     setState(() => _isLoading = false);
+  }
+
+  // ============================================================
+  // DIÁLOGO GRANDE DE ÉXITO (siempre aparece, sin importar el scroll
+  // en el que esté el usuario, para que sea imposible no darse cuenta
+  // de que la cita quedó agendada).
+  // ============================================================
+  void _mostrarDialogoExito(Map<String, dynamic> cita) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 84,
+                height: 84,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF16A34A),
+                  size: 56,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                '¡Cita agendada!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1A2E),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Tu cita de "${cita['Nombre_servicio'] ?? 'servicio'}"'
+                    '${(cita['Nombre_mascota'] ?? '').toString().isNotEmpty ? ' para ${cita['Nombre_mascota']}' : ''}'
+                    ' quedó registrada correctamente'
+                    '${(cita['Fecha'] ?? '').toString().isNotEmpty ? ' para el ${cita['Fecha']}' : ''}'
+                    '${(cita['Hora'] ?? '').toString().isNotEmpty ? ' a las ${cita['Hora']}' : ''}.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kAzul,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Entendido',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ============================================================
@@ -171,6 +377,16 @@ class _CitasScreenState extends State<CitasScreen> {
         'Observaciones': _notasController.text.trim(),
       });
 
+      // Guardamos estos valores ANTES de limpiar el formulario: antes,
+      // _limpiarFormulario() ponía _servicioSeleccionado (y los demás)
+      // en null y luego se usaban esas mismas variables (ya nulas) para
+      // armar _citaRecienCreada, por eso la tarjeta de confirmación
+      // siempre mostraba el texto genérico "Servicio" en vez del
+      // servicio real que el usuario eligió.
+      final nombreServicioElegido = _servicioSeleccionado;
+      final nombreMascotaElegida = _mascotaSeleccionada;
+      final nombreVeterinarioElegido = _veterinarioSeleccionado;
+
       _limpiarFormulario();
       if (!mounted) return;
       setState(() {
@@ -178,12 +394,14 @@ class _CitasScreenState extends State<CitasScreen> {
         _editando = false;
         _citaRecienCreada = {
           ...nuevaCita,
-          'Nombre_servicio': _servicioSeleccionado,
-          'Nombre_mascota': _mascotaSeleccionada,
-          'Nombre_veterinario': _veterinarioSeleccionado,
+          'Nombre_servicio': nombreServicioElegido,
+          'Nombre_mascota': nombreMascotaElegida,
+          'Nombre_veterinario': nombreVeterinarioElegido,
           'Estado': 'Pendiente',
         };
       });
+
+      _mostrarDialogoExito(_citaRecienCreada!);
 
       await _cargarDatos();
     } catch (e) {

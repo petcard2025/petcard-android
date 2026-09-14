@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'citas_screen.dart';
 
 class ServiceModel {
   final IconData icon;
@@ -25,7 +26,13 @@ class ServiceModel {
 }
 
 class GestionServiciosScreen extends StatefulWidget {
-  const GestionServiciosScreen({super.key});
+  // Cuando esta pantalla vive como una pestaña dentro de MainNavScreen,
+  // este callback permite pedirle que cambie a la pestaña de Citas con
+  // el servicio ya seleccionado, SIN navegar a una pantalla nueva (así
+  // la barra de navegación inferior nunca desaparece).
+  final void Function(String nombreServicio)? onAgendarServicio;
+
+  const GestionServiciosScreen({super.key, this.onAgendarServicio});
 
   @override
   State<GestionServiciosScreen> createState() => _GestionServiciosScreenState();
@@ -135,6 +142,27 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _irAAgendarCita(ServiceModel service) {
+    if (widget.onAgendarServicio != null) {
+      // Camino normal: estamos dentro de MainNavScreen, así que solo
+      // cambiamos de pestaña. La barra de navegación nunca se pierde.
+      widget.onAgendarServicio!(service.title);
+      return;
+    }
+    // Respaldo por si esta pantalla se abrió de forma independiente
+    // (fuera del contenedor con pestañas, por ejemplo con
+    // Navigator.pushNamed('/gestion-servicios')).
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CitasScreen(
+          servicioPreseleccionado: service.title,
+          abrirFormulario: true,
+        ),
+      ),
+    );
   }
 
   void _mostrarDialogoNuevoServicio() {
@@ -342,19 +370,22 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
   }
 
   Widget _buildServiceCard(ServiceModel service) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Column(
+        onTap: () => _irAAgendarCita(service),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2)),
+            ],
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
@@ -378,18 +409,24 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: service.statusBgColor, borderRadius: BorderRadius.circular(8)),
-                child: Text(
-                  service.status.toUpperCase(),
-                  style: TextStyle(color: service.statusColor, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5),
-                ),
+              // Ya no mostramos el badge de "Estado" (Completado/Pendiente).
+              // Toda la tarjeta es tappable: al tocarla se va directo a
+              // Citas con este servicio ya seleccionado.
+              Row(
+                children: [
+                  Icon(Icons.calendar_today, size: 13, color: kBlue),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Agendar',
+                    style: TextStyle(color: kBlue, fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  const Spacer(),
+                  const Icon(Icons.arrow_forward, color: Color(0xFFCBD5E1), size: 16),
+                ],
               ),
             ],
           ),
-          const Positioned(top: 0, right: 0, child: Icon(Icons.arrow_forward, color: Color(0xFFCBD5E1), size: 18)),
-        ],
+        ),
       ),
     );
   }

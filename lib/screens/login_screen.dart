@@ -166,9 +166,16 @@ class _LoginScreenState extends State<LoginScreen> {
             ?.toString();
 
         if (rol == 'admin' || rol == 'administrador') {
-          Navigator.pushReplacementNamed(context, '/admin');
+          // pushNamedAndRemoveUntil borra TODA la pila anterior (landing + login),
+          // así el botón "atrás" del dispositivo cierra la app en vez de
+          // devolver al usuario al login.
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/admin',
+                (route) => false,
+          );
         } else if (rol == 'veterinario') {
-          Navigator.pushReplacement(
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
               builder: (context) => VetDashboardScreen(
@@ -176,9 +183,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 idVeterinario: id,
               ),
             ),
+                (route) => false,
           );
         } else {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/home',
+                (route) => false,
+          );
         }
       }
     } on AuthException catch (e) {
