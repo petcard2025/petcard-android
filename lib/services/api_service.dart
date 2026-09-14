@@ -18,6 +18,8 @@ class ApiService {
 
   // IP que realmente se usará. Empieza con la primera de la lista y se
   // actualiza sola (o con la IP manual guardada) en resolverIp().
+  //voy a hacer un merge a la main
+
   static String _ipActual = _ipsConocidas.first;
 
   static String get baseUrl => 'https://$_ipActual:3001/api';
