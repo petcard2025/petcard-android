@@ -135,8 +135,9 @@ class _InicioScreenState extends State<InicioScreen> {
       ? widget.onIrATab!(1)
       : Navigator.pushNamed(context, '/citas');
 
-  void _irAGestionServicios() =>
-      Navigator.pushNamed(context, '/gestion-servicios');
+  void _irAGestionServicios() => widget.onIrATab != null
+      ? widget.onIrATab!(4)
+      : Navigator.pushNamed(context, '/gestion-servicios');
 
   void _irANotificaciones() => Navigator.pushNamed(context, '/notificaciones');
 

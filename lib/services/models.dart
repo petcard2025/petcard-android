@@ -137,6 +137,35 @@ class Mascota {
     'Peso': peso,
     'Estado': estado,
   };
+
+  // ─── CALCULAR EDAD DESDE FECHA DE NACIMIENTO ───
+  String get edadCalculada {
+    if (fechaNacimiento == null || fechaNacimiento!.isEmpty) return '—';
+    final nacimiento = DateTime.tryParse(fechaNacimiento!);
+    if (nacimiento == null) return '—';
+    final ahora = DateTime.now();
+    int anios = ahora.year - nacimiento.year;
+    if (ahora.month < nacimiento.month ||
+        (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
+      anios--;
+    }
+    if (anios < 0) return '—';
+    if (anios == 0) return 'Menos de 1 año';
+    return '$anios años';
+  }
+
+  int? get edadNumerica {
+    if (fechaNacimiento == null || fechaNacimiento!.isEmpty) return null;
+    final nacimiento = DateTime.tryParse(fechaNacimiento!);
+    if (nacimiento == null) return null;
+    final ahora = DateTime.now();
+    int anios = ahora.year - nacimiento.year;
+    if (ahora.month < nacimiento.month ||
+        (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
+      anios--;
+    }
+    return anios >= 0 ? anios : null;
+  }
 }
 
 class Cita {

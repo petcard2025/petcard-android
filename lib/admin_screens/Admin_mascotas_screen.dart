@@ -171,6 +171,21 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
     return null;
   }
 
+  String? _calcularEdadDesdeFecha(String? fechaNacimiento) {
+    if (fechaNacimiento == null || fechaNacimiento.isEmpty) return null;
+    final nacimiento = DateTime.tryParse(fechaNacimiento);
+    if (nacimiento == null) return null;
+    final ahora = DateTime.now();
+    int edad = ahora.year - nacimiento.year;
+    if (ahora.month < nacimiento.month ||
+        (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
+      edad--;
+    }
+    if (edad < 0) return null;
+    if (edad == 0) return 'Menos de 1 año';
+    return '$edad años';
+  }
+
   Future<void> _guardarMascota() async {
     if (!(_formMascotaKey.currentState?.validate() ?? false)) {
       return;
@@ -449,6 +464,8 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
   }
 
   Widget _buildMascotaCard(Map<String, dynamic> m) {
+    final edad = _calcularEdadDesdeFecha(m['Fecha_nacimiento']);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -486,6 +503,11 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
                       '${m['Especie'] ?? ''} · ${m['Raza'] ?? ''}',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
+                    if (edad != null)
+                      Text(
+                        '🎂 $edad',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
                   ],
                 ),
               ),

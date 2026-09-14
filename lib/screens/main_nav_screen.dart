@@ -15,6 +15,9 @@ import 'gestion_servicios.dart';
 // IMPORTANTE: NO importamos carnet_digital.dart aquí porque ahora
 // solo se accede desde Mis Mascotas
 
+// Índice fijo de la pestaña "Citas" dentro de _vistas / BottomNavigationBar.
+const int _kIndiceCitas = 1;
+
 class MainNavScreen extends StatefulWidget {
   const MainNavScreen({super.key});
 
@@ -28,15 +31,27 @@ class _MainNavScreenState extends State<MainNavScreen> {
   // Índice de la pestaña activa. 0 = Inicio
   int _indiceActual = 0;
 
+  // Controlador compartido: le permite a la pestaña de Servicios avisarle
+  // a la pestaña de Citas (que ya existe, viva dentro del IndexedStack)
+  // que debe abrir el formulario con un servicio ya seleccionado, sin
+  // navegar a una pantalla nueva y sin perder la barra de navegación.
+  final CitasTabController _citasController = CitasTabController();
+
   void _cambiarTab(int index) => setState(() => _indiceActual = index);
+
+  // Se llama desde la tarjeta de un servicio en el módulo de Servicios.
+  void _irACitasConServicio(String nombreServicio) {
+    _citasController.solicitarNuevaCita(nombreServicio);
+    setState(() => _indiceActual = _kIndiceCitas);
+  }
 
   // Las 6 vistas principales de la app (Carnet Digital ahora está dentro de Mis Mascotas)
   late final List<Widget> _vistas = [
     InicioScreen(onIrATab: _cambiarTab),
-    const CitasScreen(),
+    CitasScreen(controller: _citasController),
     const MisMascotasScreen(),
     const AlimentacionScreen(),
-    const GestionServiciosScreen(),
+    GestionServiciosScreen(onAgendarServicio: _irACitasConServicio),
     const PerfilScreen(),
   ];
 
