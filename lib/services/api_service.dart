@@ -13,7 +13,7 @@ class ApiService {
   static const List<String> _ipsConocidas = [
     '192.168.137.246',      // Red actual (más reciente)
     '172.20.10.3', // Hotspot móvil
-    '192.168.80.15',   // WiFi de casa
+    '192.168.80.17',   // WiFi de casa
   ];
 
   // IP que realmente se usará. Empieza con la primera de la lista y se
@@ -260,6 +260,34 @@ class ApiService {
 
     throw Exception(data['error'] ?? 'No se pudo procesar la solicitud.');
   }
+
+  // ============================================================
+  // RESTABLECER CONTRASEÑA CON CÓDIGO DE 6 DÍGITOS
+  // ============================================================
+  Future<void> resetPassword({
+    required String correo,
+    required String codigo,
+    required String nuevaContrasena,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/auth/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'Correo': correo,
+        'codigo': codigo,
+        'nuevaContrasena': nuevaContrasena,
+      }),
+    );
+
+    final data = _parseBody(response);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    throw Exception(data['error'] ?? 'No se pudo restablecer la contraseña.');
+  }
+
   // ============================================================
   // USUARIOS
   // ============================================================

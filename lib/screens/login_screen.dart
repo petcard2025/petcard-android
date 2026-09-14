@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
+import 'reset_password_screen.dart';
 import '../vete_screens/vet_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -196,7 +197,10 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authService.sendPasswordResetEmail(email);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Enviamos un enlace de recuperación a $email')),
+          SnackBar(
+            content: Text('Se envió un correo a $email. Revisa tu bandeja (y SPAM).'),
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     } on AuthException catch (e) {
@@ -205,6 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(content: Text(e.message)),
         );
       }
+      rethrow;
     }
   }
 
@@ -228,7 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.',
+                      'Ingresa tu correo y te enviaremos un código para restablecer tu contraseña.',
                       style: TextStyle(fontSize: 13, color: Colors.black54),
                     ),
                     const SizedBox(height: 16),
@@ -274,9 +279,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       : () async {
                     if (!dialogFormKey.currentState!.validate()) return;
                     setDialogState(() => isSending = true);
-                    await _sendPasswordResetEmail(
-                        resetEmailController.text.trim());
-                    if (context.mounted) Navigator.pop(context);
+
+                    final correo = resetEmailController.text.trim();
+                    try {
+                      await _sendPasswordResetEmail(correo);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ResetPasswordScreen(correoInicial: correo),
+                          ),
+                        );
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        setDialogState(() => isSending = false);
+                      }
+                    }
                   },
                   child: isSending
                       ? const SizedBox(
