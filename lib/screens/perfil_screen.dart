@@ -8,7 +8,9 @@ import 'dart:convert';
 import '../services/api_service.dart';
 
 class PerfilScreen extends StatefulWidget {
-  const PerfilScreen({super.key});
+  final void Function(int index)? onIrATab;
+
+  const PerfilScreen({super.key, this.onIrATab});
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
@@ -211,15 +213,24 @@ class _PerfilScreenState extends State<PerfilScreen> {
   // NAVEGACIÓN
   // ============================================================
   void _irAMascotas() {
+    if (widget.onIrATab != null) {
+      widget.onIrATab!(2); // Índice de "Mascotas" en MainNavScreen
+      return;
+    }
     Navigator.pushNamed(context, '/mis-mascotas');
   }
 
   void _irACitas() {
+    if (widget.onIrATab != null) {
+      widget.onIrATab!(3); // Índice de "Citas" en MainNavScreen
+      return;
+    }
     Navigator.pushNamed(context, '/citas');
   }
 
   void _irACarnet() {
-    Navigator.pushNamed(context, '/carnet');
+    // El carnet se abre desde Mis Mascotas
+    _irAMascotas();
   }
 
   void _irANotificaciones() {
@@ -271,6 +282,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF2563EB),
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: Row(
           children: [
             Icon(Icons.pets, color: Colors.white, size: 24),

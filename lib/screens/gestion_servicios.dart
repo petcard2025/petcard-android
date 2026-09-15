@@ -42,8 +42,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
   static const Color kWarningLight = Color(0xFFFEF3C7);
   static const Color kDanger = Color(0xFFE91E63);
   static const Color kDangerLight = Color(0xFFFCE4EC);
-  static const Color kPurple = Color(0xFF7C3AED);
-  static const Color kPurpleLight = Color(0xFFEDE7F6);
   static const Color kOrange = Color(0xFFF57C00);
   static const Color kOrangeLight = Color(0xFFFFE0B2);
 
@@ -56,7 +54,7 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
   List<Map<String, dynamic>> _mascotas = [];
   Map<String, dynamic>? _mascotaSeleccionada;
 
-  List<ServiceModel> _servicios = [
+  final List<ServiceModel> _servicios = [
     ServiceModel(
       icon: Icons.vaccines,
       title: 'Vacunación',
@@ -115,9 +113,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     _cargarDatos();
   }
 
-  // ============================================================
-  // CARGA DE DATOS
-  // ============================================================
   Future<void> _cargarDatos() async {
     setState(() {
       _isLoading = true;
@@ -143,9 +138,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     setState(() => _isLoading = false);
   }
 
-  // ============================================================
-  // AGENDAR CITA
-  // ============================================================
   void _irAAgendarCita(ServiceModel service) {
     if (_mascotas.isEmpty) {
       _mostrarAlerta(
@@ -167,12 +159,7 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
 
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => CitasScreen(
-          servicioPreseleccionado: service.title,
-          abrirFormulario: true,
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => const CitasScreen()),
     );
   }
 
@@ -192,9 +179,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     );
   }
 
-  // ============================================================
-  // SELECTOR DE MASCOTA (bottom sheet)
-  // ============================================================
   void _mostrarSelectorMascota() {
     showModalBottomSheet(
       context: context,
@@ -249,7 +233,7 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
                     Navigator.pop(context);
                   },
                 );
-              }).toList(),
+              }),
               const SizedBox(height: 8),
             ],
           ),
@@ -282,9 +266,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     return '$anios año${anios == 1 ? '' : 's'}';
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -293,11 +274,7 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              color: Color(0xFF1E293B), size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
         title: const Text(
           'Servicios',
           style: TextStyle(
@@ -359,16 +336,11 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // SECCIÓN DE MASCOTA
               if (_mascotas.isEmpty)
                 _buildSinMascotas()
               else
                 _buildSelectorMascota(),
-
               const SizedBox(height: 28),
-
-              // Grid de Servicios
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -393,9 +365,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGET: SIN MASCOTAS
-  // ============================================================
   Widget _buildSinMascotas() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -416,8 +385,8 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
           Container(
             width: 60,
             height: 60,
-            decoration:
-            const BoxDecoration(color: kWarningLight, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+                color: kWarningLight, shape: BoxShape.circle),
             child: const Icon(Icons.pets, color: kWarning, size: 30),
           ),
           const SizedBox(height: 14),
@@ -456,9 +425,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGET: SELECTOR DE MASCOTA (estilo "Mis Mascotas")
-  // ============================================================
   Widget _buildSelectorMascota() {
     final hayVarias = _mascotas.length > 1;
     final mascota = _mascotaSeleccionada;
@@ -487,7 +453,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Fila superior: Avatar + Nombre + Botón Cambiar
           Row(
             children: [
               Container(
@@ -548,10 +513,7 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
                 ),
             ],
           ),
-
           const SizedBox(height: 14),
-
-          // Chips con info extra: Sexo, Peso, Edad
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -567,9 +529,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGET: ESTADO DE ERROR
-  // ============================================================
   Widget _buildErrorState() {
     return Center(
       child: Padding(
@@ -609,9 +568,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGET: CHIP
-  // ============================================================
   Widget _buildChip(String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -632,9 +588,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGET: TARJETA DE SERVICIO
-  // ============================================================
   Widget _buildServiceCard(ServiceModel service) {
     final puedeAgendar = _mascotas.isNotEmpty;
 

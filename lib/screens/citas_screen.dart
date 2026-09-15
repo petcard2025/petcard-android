@@ -759,6 +759,7 @@ class _CitasScreenState extends State<CitasScreen> {
       appBar: AppBar(
         backgroundColor: kAzul,
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: Row(
           children: [
             const Icon(Icons.calendar_today, color: Colors.white, size: 22),
