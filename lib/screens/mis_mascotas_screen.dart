@@ -524,7 +524,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       return Icons.pets;
     }
     if (especieLower.contains('ave') || especieLower.contains('pajaro')) {
-      return Icons.flight;
+      return Icons.pets;
     }
     return Icons.pets;
   }
@@ -539,6 +539,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       appBar: AppBar(
         backgroundColor: kAzul,
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: Row(
           children: [
             const Icon(Icons.pets, color: Colors.white, size: 24),

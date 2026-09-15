@@ -1,14 +1,13 @@
 // ============================================================
 // ALIMENTACION SCREEN - Plan nutricional de las mascotas
-// Mismo diseño (selector de mascota, tabs, stats, tarjetas)
-// que la sección "Alimentación" de la web de PetCard,
-// adaptado a móvil. Color principal: azul (igual que el resto
-// de la app), no morado.
+// Mismo diseño que la sección "Alimentación" de la web,
+// adaptado a móvil. Lee mascotas del BACKEND (Supabase).
 // ============================================================
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../services/api_service.dart';
 
 class AlimentacionScreen extends StatefulWidget {
   const AlimentacionScreen({super.key});
@@ -19,7 +18,7 @@ class AlimentacionScreen extends StatefulWidget {
 
 class _AlimentacionScreenState extends State<AlimentacionScreen> {
   // ============================================================
-  // COLORES (igual que el resto de la app)
+  // COLORES
   // ============================================================
   static const Color kAzul = Color(0xFF2563EB);
   static const Color kAzulBg = Color(0xFFEFF6FF);
@@ -35,13 +34,15 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
   // ============================================================
   // VARIABLES DE ESTADO
   // ============================================================
+  final ApiService _api = ApiService();
+
   bool _isLoading = true;
   List<Map<String, dynamic>> _mascotas = [];
   List<Map<String, dynamic>> _planes = [];
   String? _mascotaSeleccionada;
   int _tabIndex = 0; // 0 = Plan, 1 = Historial, 2 = Alternativas
 
-  // Controladores del formulario de plan nutricional
+  // Controladores del formulario
   final TextEditingController _tipoDietaController = TextEditingController();
   final TextEditingController _caloriasController = TextEditingController();
   final TextEditingController _frecuenciaController = TextEditingController();
@@ -82,22 +83,24 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // 🔥 Mascotas desde el BACKEND (no SharedPreferences)
+      final mascotas = await _api.obtenerMisMascotas();
+      _mascotas = mascotas;
+
+      // Los planes SÍ se guardan en SharedPreferences por ahora
       final prefs = await SharedPreferences.getInstance();
-
-      final mascotasStr = prefs.getString('petcard_mascotas') ?? '[]';
-      final List<dynamic> mascotas = jsonDecode(mascotasStr);
-      _mascotas = mascotas.map((m) => Map<String, dynamic>.from(m)).toList();
-
       final planesStr = prefs.getString('petcard_alimentacion') ?? '[]';
       final List<dynamic> planes = jsonDecode(planesStr);
       _planes = planes.map((p) => Map<String, dynamic>.from(p)).toList();
 
-      if ((_mascotaSeleccionada == null ||
-          !_mascotas.any((m) => m['nombre'] == _mascotaSeleccionada)) &&
-          _mascotas.isNotEmpty) {
-        _mascotaSeleccionada = _mascotas.first['nombre'].toString();
-      }
-      if (_mascotas.isEmpty) {
+      // Seleccionar la primera mascota por defecto
+      if (_mascotas.isNotEmpty) {
+        final primera = _mascotas.first['Nombre'].toString();
+        if (_mascotaSeleccionada == null ||
+            !_mascotas.any((m) => m['Nombre'] == _mascotaSeleccionada)) {
+          _mascotaSeleccionada = primera;
+        }
+      } else {
         _mascotaSeleccionada = null;
       }
     } catch (e) {
@@ -114,7 +117,25 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
   }
 
   // ============================================================
-  // GETTERS DE CONVENIENCIA
+  // HELPERS
+  // ============================================================
+  String _calcularEdadDesdeFecha(String? fechaNacimiento) {
+    if (fechaNacimiento == null || fechaNacimiento.isEmpty) return '—';
+    final nacimiento = DateTime.tryParse(fechaNacimiento);
+    if (nacimiento == null) return '—';
+    final ahora = DateTime.now();
+    int anios = ahora.year - nacimiento.year;
+    if (ahora.month < nacimiento.month ||
+        (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
+      anios--;
+    }
+    if (anios < 0) return '—';
+    if (anios == 0) return 'Menos de 1 año';
+    return anios == 1 ? '1 año' : '$anios años';
+  }
+
+  // ============================================================
+  // GETTERS
   // ============================================================
   Map<String, dynamic>? get _planActual {
     if (_mascotaSeleccionada == null) return null;
@@ -127,7 +148,7 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
   Map<String, dynamic>? get _mascotaActual {
     if (_mascotaSeleccionada == null) return null;
     for (final m in _mascotas) {
-      if (m['nombre'] == _mascotaSeleccionada) return m;
+      if (m['Nombre'] == _mascotaSeleccionada) return m;
     }
     return null;
   }
@@ -140,7 +161,7 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
   }
 
   // ============================================================
-  // FORMULARIO - CREAR / EDITAR PLAN
+  // FORMULARIO
   // ============================================================
   void _abrirFormularioPlan() {
     if (_mascotaSeleccionada == null) {
@@ -212,24 +233,31 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
                 style: TextStyle(color: Colors.grey[600], fontSize: 12.5),
               ),
               const SizedBox(height: 16),
-              _campoTexto('Tipo de dieta', _tipoDietaController, hint: 'Ej. Balanceada completa'),
+              _campoTexto('Tipo de dieta', _tipoDietaController,
+                  hint: 'Ej. Balanceada completa'),
               Row(
                 children: [
                   Expanded(
-                    child: _campoTexto('Calorías/día', _caloriasController, hint: 'Ej. 1200 kcal'),
+                    child: _campoTexto('Calorías/día', _caloriasController,
+                        hint: 'Ej. 1200 kcal'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _campoTexto('Frecuencia', _frecuenciaController, hint: '2 veces al día'),
+                    child: _campoTexto('Frecuencia', _frecuenciaController,
+                        hint: '2 veces al día'),
                   ),
                 ],
               ),
-              _campoTexto('Horario', _horarioController, hint: 'Ej. 7:00 AM · 6:00 PM'),
+              _campoTexto('Horario', _horarioController,
+                  hint: 'Ej. 7:00 AM · 6:00 PM'),
               _campoTexto('Comidas (separadas por coma)', _comidasController,
                   hint: 'Desayuno, Almuerzo, Cena'),
-              _campoTexto('Suplementos', _suplementosController, hint: 'Ej. Omega-3, Glucosamina'),
-              _campoTexto('Alergias / restricciones', _alergiasController, hint: 'Ninguna'),
-              _campoTexto('Diagnóstico', _diagnosticoController, hint: 'No disponible'),
+              _campoTexto('Suplementos', _suplementosController,
+                  hint: 'Ej. Omega-3, Glucosamina'),
+              _campoTexto('Alergias / restricciones', _alergiasController,
+                  hint: 'Ninguna'),
+              _campoTexto('Diagnóstico', _diagnosticoController,
+                  hint: 'No disponible'),
               _campoTexto('Observaciones', _observacionesController,
                   hint: 'Notas del veterinario', maxLines: 3),
               const SizedBox(height: 8),
@@ -240,11 +268,15 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kAzul,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                   child: const Text(
                     'Guardar Plan',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15),
                   ),
                 ),
               ),
@@ -269,7 +301,10 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700]),
           ),
           const SizedBox(height: 4),
           TextField(
@@ -289,7 +324,8 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
                 borderRadius: BorderRadius.circular(8),
                 borderSide: const BorderSide(color: kAzul, width: 2),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               isDense: true,
               filled: true,
               fillColor: Colors.white,
@@ -301,7 +337,8 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
   }
 
   Future<void> _guardarPlan() async {
-    if (_tipoDietaController.text.trim().isEmpty || _caloriasController.text.trim().isEmpty) {
+    if (_tipoDietaController.text.trim().isEmpty ||
+        _caloriasController.text.trim().isEmpty) {
       _mostrarAlerta('Error', '⚠️ El tipo de dieta y las calorías son obligatorios');
       return;
     }
@@ -315,10 +352,12 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
         'frecuencia': _frecuenciaController.text.trim(),
         'horario': _horarioController.text.trim(),
         'comidas': _comidasController.text.trim(),
-        'suplementos':
-        _suplementosController.text.trim().isEmpty ? 'Ninguno' : _suplementosController.text.trim(),
-        'alergias':
-        _alergiasController.text.trim().isEmpty ? 'Ninguna' : _alergiasController.text.trim(),
+        'suplementos': _suplementosController.text.trim().isEmpty
+            ? 'Ninguno'
+            : _suplementosController.text.trim(),
+        'alergias': _alergiasController.text.trim().isEmpty
+            ? 'Ninguna'
+            : _alergiasController.text.trim(),
         'diagnostico': _diagnosticoController.text.trim().isEmpty
             ? 'No disponible'
             : _diagnosticoController.text.trim(),
@@ -328,7 +367,6 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
         'fechaRegistro': DateTime.now().toIso8601String(),
       };
 
-      // Solo un plan activo por mascota: se reemplaza el anterior
       _planes.removeWhere((p) => p['mascota'] == _mascotaSeleccionada);
       _planes.add(nuevoPlan);
       await _guardarEnPrefs();
@@ -390,7 +428,7 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
   }
 
   // ============================================================
-  // CONSTRUCCIÓN DE LA INTERFAZ
+  // BUILD
   // ============================================================
   @override
   Widget build(BuildContext context) {
@@ -399,6 +437,7 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
       appBar: AppBar(
         backgroundColor: kAzul,
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: const Text(
           'Alimentación',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -435,15 +474,16 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
         icon: const Icon(Icons.edit_note, color: Colors.white),
         label: Text(
           _planActual == null ? 'Crear Plan' : 'Editar Plan',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // Selector de mascota
-  // ------------------------------------------------------------
+  // ============================================================
+  // SELECTOR DE MASCOTA
+  // ============================================================
   Widget _buildSelectorMascota() {
     return Container(
       width: double.infinity,
@@ -483,21 +523,23 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
             )
           else
             DropdownButtonFormField<String>(
-              initialValue: _mascotaSeleccionada,
+              value: _mascotaSeleccionada,
               decoration: InputDecoration(
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 isDense: true,
                 filled: true,
                 fillColor: Colors.white,
               ),
               items: _mascotas
                   .map((m) => DropdownMenuItem(
-                value: m['nombre'].toString(),
-                child: Text('${m['nombre']} · ${m['especie'] ?? 'Mascota'}'),
+                value: m['Nombre'].toString(),
+                child: Text(
+                    '${m['Nombre']} · ${m['Especie'] ?? 'Mascota'}'),
               ))
                   .toList(),
               onChanged: (v) => setState(() => _mascotaSeleccionada = v),
@@ -506,7 +548,8 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
             const SizedBox(height: 8),
             Text(
               'Plan: ${_planActual!['tipoDieta']}',
-              style: const TextStyle(color: kAzul, fontWeight: FontWeight.bold, fontSize: 13),
+              style: const TextStyle(
+                  color: kAzul, fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ],
         ],
@@ -514,13 +557,14 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
     );
   }
 
-  // ------------------------------------------------------------
-  // Tabs
-  // ------------------------------------------------------------
+  // ============================================================
+  // TABS
+  // ============================================================
   Widget _buildTabs() {
     final tabs = ['Plan Nutricional', 'Historial', 'Alternativas'];
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(12)),
       padding: const EdgeInsets.all(4),
       child: Row(
         children: List.generate(tabs.length, (i) {
@@ -553,9 +597,9 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
     );
   }
 
-  // ------------------------------------------------------------
-  // TAB: Plan Nutricional
-  // ------------------------------------------------------------
+  // ============================================================
+  // TAB: PLAN NUTRICIONAL
+  // ============================================================
   Widget _buildTabPlan() {
     if (_mascotaSeleccionada == null) {
       return _mensajeVacio(
@@ -571,7 +615,10 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (mascota != null) ...[_tarjetaInfoMascota(mascota), const SizedBox(height: 16)],
+          if (mascota != null) ...[
+            _tarjetaInfoMascota(mascota),
+            const SizedBox(height: 16)
+          ],
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -581,14 +628,15 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
               border: Border.all(color: const Color(0xFFFDE2E2)),
             ),
             child: Column(
-              children: [
-                const Text(
+              children: const [
+                Text(
                   'Aún no tienes un plan de alimentación asignado',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB91C1C)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: Color(0xFFB91C1C)),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
-                const Text(
+                SizedBox(height: 8),
+                Text(
                   'Normalmente es tu veterinario quien crea y asigna el plan nutricional. Toca "Crear Plan" para registrarlo.',
                   style: TextStyle(color: Color(0xFF7F1D1D), fontSize: 13),
                   textAlign: TextAlign.center,
@@ -605,7 +653,6 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Stats
         Row(
           children: [
             Expanded(
@@ -640,8 +687,6 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
           ],
         ),
         const SizedBox(height: 14),
-
-        // Alimento / plan recomendado
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -658,7 +703,8 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
                   children: [
                     Text(
                       'Plan de dieta: ${plan['tipoDieta'] ?? ''}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: kAzul),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, color: kAzul),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -672,10 +718,12 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Suplementos', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                  Text('Suplementos',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600])),
                   Text(
                     (plan['suplementos'] ?? 'Ninguno').toString(),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                 ],
               ),
@@ -683,14 +731,10 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
           ),
         ),
         const SizedBox(height: 18),
-
-        // Horarios de alimentación
         _seccionTitulo('Horarios de Alimentación'),
         if (comidas.isEmpty)
-          Text(
-            'No hay comidas registradas en el plan de esta mascota.',
-            style: TextStyle(color: Colors.grey[500]),
-          )
+          Text('No hay comidas registradas en el plan de esta mascota.',
+              style: TextStyle(color: Colors.grey[500]))
         else
           ...comidas.asMap().entries.map((entry) {
             final idx = entry.key;
@@ -714,36 +758,42 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
                       color: destacado ? kVerdeBg : Colors.grey[100],
                     ),
                     child: Icon(Icons.access_time,
-                        size: 15, color: destacado ? kVerde : Colors.grey[500]),
+                        size: 15,
+                        color: destacado ? kVerde : Colors.grey[500]),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        Text(item,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13.5)),
                         Text(
                           (plan['horario'] ?? '').toString().isEmpty
                               ? 'Horario no definido'
                               : plan['horario'].toString(),
-                          style: TextStyle(fontSize: 11.5, color: Colors.grey[500]),
+                          style: TextStyle(
+                              fontSize: 11.5, color: Colors.grey[500]),
                         ),
                       ],
                     ),
                   ),
                   Text(
                     '${plan['calorias'] ?? ''} cal',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[600]),
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[600]),
                   ),
                   const SizedBox(width: 8),
-                  Icon(Icons.check_circle, size: 16, color: destacado ? kVerde : Colors.grey[300]),
+                  Icon(Icons.check_circle,
+                      size: 16, color: destacado ? kVerde : Colors.grey[300]),
                 ],
               ),
             );
           }),
         const SizedBox(height: 18),
-
-        // Suplementos
         _seccionTitulo('Suplementos'),
         _suplementoCard(
           (plan['suplementos'] ?? 'Ninguno').toString(),
@@ -755,8 +805,6 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
           kVerdeBg,
         ),
         const SizedBox(height: 18),
-
-        // Restricciones
         _seccionTitulo('Restricciones Alimentarias'),
         _restriccionItem(
           icon: Icons.warning_amber_rounded,
@@ -776,8 +824,6 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
           bg: kAmarilloBg,
         ),
         const SizedBox(height: 18),
-
-        // Observaciones
         _seccionTitulo('Observaciones'),
         Container(
           width: double.infinity,
@@ -793,8 +839,10 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
           ),
         ),
         const SizedBox(height: 20),
-
-        if (mascota != null) ...[_tarjetaInfoMascota(mascota), const SizedBox(height: 16)],
+        if (mascota != null) ...[
+          _tarjetaInfoMascota(mascota),
+          const SizedBox(height: 16)
+        ],
         _tarjetaConsumoNutricional(),
         const SizedBox(height: 90),
       ],
@@ -803,7 +851,8 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
 
   Widget _seccionTitulo(String t) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: Text(t, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+    child: Text(t,
+        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
   );
 
   Widget _statBox({
@@ -815,14 +864,18 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      decoration:
+      BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
       child: Column(
         children: [
           Icon(icon, color: color, size: 22),
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF1A1A2E)),
+            style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                color: Color(0xFF1A1A2E)),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -831,14 +884,16 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w700, color: color),
           ),
         ],
       ),
     );
   }
 
-  Widget _suplementoCard(String titulo, String detalle, String badge, Color color, Color bg) {
+  Widget _suplementoCard(
+      String titulo, String detalle, String badge, Color color, Color bg) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -854,13 +909,19 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
             children: [
               Expanded(
                 child: Text(titulo,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 13)),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: color, fontSize: 13)),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                    color: color, borderRadius: BorderRadius.circular(12)),
                 child: Text(badge,
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -894,16 +955,26 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(titulo, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
-                Text(subtitulo, style: TextStyle(fontSize: 11.5, color: Colors.grey[600])),
+                Text(titulo,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: color)),
+                Text(subtitulo,
+                    style:
+                    TextStyle(fontSize: 11.5, color: Colors.grey[600])),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+                color: color, borderRadius: BorderRadius.circular(12)),
             child: Text(badge,
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -911,6 +982,9 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
   }
 
   Widget _tarjetaInfoMascota(Map<String, dynamic> m) {
+    final edad = _calcularEdadDesdeFecha(m['Fecha_nacimiento']?.toString());
+    final peso = m['Peso'];
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -918,7 +992,10 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -929,16 +1006,17 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
               const Icon(Icons.pets, color: kAzul, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Información de ${m['nombre'] ?? 'Mascota'}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kAzul),
+                'Información de ${m['Nombre'] ?? 'Mascota'}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 14, color: kAzul),
               ),
             ],
           ),
           const Divider(height: 20),
-          _filaInfo('Peso Actual', '${m['peso'] ?? '—'} kg'),
-          _filaInfo('Edad', '${m['edad'] ?? '—'}'),
-          _filaInfo('Raza', '${m['raza'] ?? '—'}'),
-          _filaInfo('Especie', '${m['especie'] ?? '—'}'),
+          _filaInfo('Peso Actual', '${peso ?? '—'} kg'),
+          _filaInfo('Edad', edad),
+          _filaInfo('Raza', '${m['Raza'] ?? '—'}'),
+          _filaInfo('Especie', '${m['Especie'] ?? '—'}'),
         ],
       ),
     );
@@ -951,7 +1029,9 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          Text(valor, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(valor,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 13)),
         ],
       ),
     );
@@ -965,7 +1045,10 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -975,19 +1058,22 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
             children: const [
               Icon(Icons.pie_chart_outline, color: kAzul, size: 18),
               SizedBox(width: 8),
-              Text('Consumo Nutricional', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              Text('Consumo Nutricional',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             ],
           ),
           const SizedBox(height: 14),
           _barraNutriente('Proteínas', 0.45, kAzul, 'Recomendado: 40-50%'),
           _barraNutriente('Grasas', 0.20, kVerde, 'Recomendado: 15-25%'),
-          _barraNutriente('Carbohidratos', 0.35, Colors.grey, 'Recomendado: 30-40%'),
+          _barraNutriente(
+              'Carbohidratos', 0.35, Colors.grey, 'Recomendado: 30-40%'),
         ],
       ),
     );
   }
 
-  Widget _barraNutriente(String label, double valor, Color color, String recomendado) {
+  Widget _barraNutriente(
+      String label, double valor, Color color, String recomendado) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -998,7 +1084,8 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
             children: [
               Text(label, style: const TextStyle(fontSize: 12.5)),
               Text('${(valor * 100).round()}%',
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                  style: const TextStyle(
+                      fontSize: 12.5, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 5),
@@ -1012,34 +1099,37 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
             ),
           ),
           const SizedBox(height: 3),
-          Text(recomendado, style: TextStyle(fontSize: 10.5, color: Colors.grey[500])),
+          Text(recomendado,
+              style: TextStyle(fontSize: 10.5, color: Colors.grey[500])),
         ],
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // TAB: Historial de cambios
-  // ------------------------------------------------------------
+  // ============================================================
+  // TAB: HISTORIAL
+  // ============================================================
   Widget _buildTabHistorial() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(16)),
       alignment: Alignment.center,
       child: Column(
         children: [
           Icon(Icons.history, size: 56, color: Colors.grey[300]),
           const SizedBox(height: 12),
-          Text('No hay cambios registrados aún.', style: TextStyle(color: Colors.grey[500])),
+          Text('No hay cambios registrados aún.',
+              style: TextStyle(color: Colors.grey[500])),
         ],
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // TAB: Alternativas / planes recomendados
-  // ------------------------------------------------------------
+  // ============================================================
+  // TAB: ALTERNATIVAS
+  // ============================================================
   Widget _buildTabAlternativas() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1195,7 +1285,10 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border(left: BorderSide(color: color, width: 4)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1209,19 +1302,26 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('${p['emoji']} ${p['titulo']}',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 14)),
                     const SizedBox(height: 2),
-                    Text(p['vet'].toString(), style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    Text(p['vet'].toString(),
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                    color: color, borderRadius: BorderRadius.circular(12)),
                 child: Text(
                   p['badge'].toString(),
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -1236,8 +1336,12 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(e.key, style: TextStyle(fontSize: 10.5, color: Colors.grey[500])),
-                  Text(e.value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text(e.key,
+                      style: TextStyle(
+                          fontSize: 10.5, color: Colors.grey[500])),
+                  Text(e.value,
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold)),
                 ],
               ),
             ))
@@ -1249,7 +1353,8 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
             runSpacing: 6,
             children: comidas
                 .map((c) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(20),
@@ -1261,7 +1366,8 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
           ),
           const SizedBox(height: 10),
           Text(p['obs'].toString(),
-              style: TextStyle(fontSize: 11.5, color: Colors.grey[600], height: 1.4)),
+              style: TextStyle(
+                  fontSize: 11.5, color: Colors.grey[600], height: 1.4)),
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
@@ -1276,7 +1382,10 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
               }),
               icon: Icon(Icons.copy_outlined, size: 15, color: color),
               label: Text('Usar como base',
-                  style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+                  style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12)),
             ),
           ),
         ],
@@ -1288,13 +1397,18 @@ class _AlimentacionScreenState extends State<AlimentacionScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(16)),
       alignment: Alignment.center,
       child: Column(
         children: [
           Icon(Icons.pets_outlined, size: 56, color: Colors.grey[300]),
           const SizedBox(height: 12),
-          Text(titulo, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.grey[700])),
+          Text(titulo,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: Colors.grey[700])),
           const SizedBox(height: 6),
           Text(
             subtitulo,

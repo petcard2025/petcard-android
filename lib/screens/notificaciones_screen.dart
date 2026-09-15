@@ -34,12 +34,12 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
   static const Color kBorde = Color(0xFFE2E8F0);
 
   static const List<_Categoria> _categorias = [
-    _Categoria('todas', 'Todas', '🔔'),
-    _Categoria('cita', 'Citas', '📅'),
-    _Categoria('vacuna', 'Vacunas', '💉'),
-    _Categoria('alimentacion', 'Alimentación', '🍖'),
-    _Categoria('medicamentos', 'Medicamentos', '💊'),
-    _Categoria('resultados', 'Resultados', '📋'),
+    _Categoria('todas', 'Todas', ''),
+    _Categoria('cita', 'Citas', ''),
+    _Categoria('vacuna', 'Vacunas', ''),
+    _Categoria('alimentacion', 'Alimentación', ''),
+    _Categoria('medicamentos', 'Medicamentos', ''),
+    _Categoria('resultados', 'Resultados', ''),
   ];
 
   final ApiService _api = ApiService();
@@ -90,14 +90,14 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
 
   String _emojiCategoria(String cat) {
     const map = {
-      'cita': '📅',
-      'vacuna': '💉',
-      'alimentacion': '🍖',
-      'medicamentos': '💊',
-      'resultados': '📋',
-      'sistema': '🔔',
+      'cita': '',
+      'vacuna': '',
+      'alimentacion': '',
+      'medicamentos': '',
+      'resultados': '',
+      'sistema': '',
     };
-    return map[cat] ?? '🔔';
+    return map[cat] ?? '';
   }
 
   Color _colorCategoria(String cat) {
@@ -242,7 +242,7 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
       appBar: AppBar(
         backgroundColor: kAzul,
         elevation: 0,
-        title: const Text('🔔 Notificaciones',
+        title: const Text('Notificaciones',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -321,16 +321,24 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
             ],
             Expanded(
               child: SizedBox(
-                height: 36,
+                height: 40,
                 child: ElevatedButton.icon(
                   onPressed: _noLeidas == 0 ? null : _marcarTodasLeidas,
-                  icon: const Icon(Icons.check, size: 15, color: Colors.white),
-                  label: const Text('Marcar todas como leídas',
-                      style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.check, size: 16, color: Colors.white),
+                  label: const Text(
+                    'Marcar todas como leídas',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kIndigo,
-                    disabledBackgroundColor: const Color(0xFFC7D2FE),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    disabledBackgroundColor: const Color(0xFF9CA3AF),
+                    disabledForegroundColor: Colors.white,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     elevation: 0,
                   ),
                 ),
