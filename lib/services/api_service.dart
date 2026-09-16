@@ -6,7 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   static const List<String> _ipsConocidas = [
-    '192.168.80.25',
+    '192.168.80.13',
     '172.28.208.1',
     '181.59.2.17',
   ];

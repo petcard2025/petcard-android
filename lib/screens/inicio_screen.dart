@@ -154,7 +154,7 @@ class _InicioScreenState extends State<InicioScreen> {
       appBar: AppBar(
         backgroundColor: kBlue,
         elevation: 0,
-        // 🔥 QUITAR el botón de retroceso automático
+
         automaticallyImplyLeading: false,
         title: Row(
           children: [
@@ -226,7 +226,6 @@ class _InicioScreenState extends State<InicioScreen> {
               const SizedBox(height: 12),
               _buildEstadisticas(),
               const SizedBox(height: 32),
-              _buildFooter(),
             ],
           ),
         ),
@@ -812,26 +811,6 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  Widget _buildFooter() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.pets, color: Colors.grey, size: 20),
-          SizedBox(height: 8),
-          Text(
-            '© 2026 PetCard. Todos los derechos reservados.',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _Accion {
