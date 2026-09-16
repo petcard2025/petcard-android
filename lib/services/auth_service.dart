@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
+import 'notification_service.dart';
 
 class AuthService {
   // Patrón Singleton
@@ -9,6 +10,7 @@ class AuthService {
   AuthService._internal();
 
   final ApiService _apiService = ApiService();
+  final NotificationService _notificationService = NotificationService();
   Map<String, dynamic>? _usuarioActual;
 
   Map<String, dynamic>? get usuarioActual => _usuarioActual;
@@ -27,8 +29,6 @@ class AuthService {
     try {
       final respuesta = await _apiService.login(
         correo: email.trim(),
-        // La contraseña NUNCA se recorta: un espacio intencional
-        // es parte de la contraseña real del usuario.
         contrasena: password,
       );
 
@@ -36,6 +36,10 @@ class AuthService {
       if (usuario != null) {
         await _persistirUsuario(usuario);
       }
+
+      // Registrar el token de este dispositivo ahora que hay sesión
+      await _notificationService.inicializar();
+
       return respuesta;
     } catch (e) {
       throw AuthException(_mensajeAmigable(e.toString()));
@@ -64,8 +68,6 @@ class AuthService {
   }
 
   /// ─── RECUPERAR CONTRASEÑA ───
-  /// ⚠️ El backend aún no envía correos reales — solo genera el
-  /// token (ver ApiService.solicitarRecuperacion).
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _apiService.solicitarRecuperacion(email.trim());
@@ -76,6 +78,7 @@ class AuthService {
 
   /// ─── CERRAR SESIÓN ───
   Future<void> signOut() async {
+    await _notificationService.eliminarToken();
     await _apiService.logout();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('petcard_usuario_actual');
@@ -87,10 +90,8 @@ class AuthService {
     final token = await _apiService.obtenerToken();
     if (token == null) return false;
 
-    // Si ya tenemos el usuario en memoria, genial
     if (_usuarioActual != null) return true;
 
-    // Si no, intentamos cargarlo de SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('petcard_usuario_actual');
     if (userStr != null) {

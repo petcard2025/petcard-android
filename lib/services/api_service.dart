@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class ApiService {
   // Lista de IPs conocidas de tu laptop (la más reciente primero).
   static const List<String> _ipsConocidas = [
+    '10.0.2.2',    // carlos
     '192.168.80.25',     // laura
     '192.168.112.1',     // laura
     '181.59.2.17',       // laura
@@ -126,13 +127,16 @@ class ApiService {
     required String contrasena,
   }) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/auth/login'),
+      Uri.parse('$baseUrl/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'Correo': correo,
         'Contrasena': contrasena,
       }),
     );
+
+    print('🔍 DEBUG status: ${response.statusCode}');
+    print('🔍 DEBUG body: ${response.body}');
 
     final data = _parseBody(response);
 
@@ -233,6 +237,19 @@ class ApiService {
       headers: headers,
     );
     _verificarOk(response, 'No se pudo eliminar el usuario.');
+  }
+
+  // ============================================================
+  // NOTIFICACIONES PUSH (FCM)
+  // ============================================================
+  Future<void> actualizarTokenFcm(String tokenFcm) async {
+    final headers = await _headersConToken();
+    final response = await _client.put(
+      Uri.parse('$baseUrl/usuarios/fcm-token'),
+      headers: headers,
+      body: jsonEncode({'FCM_token': tokenFcm}),
+    );
+    _verificarOk(response, 'No se pudo registrar el token de notificaciones.');
   }
 
   // ============================================================
@@ -615,6 +632,38 @@ class ApiService {
       headers: headers,
     );
     return _parseLista(response, 'No se pudieron obtener los veterinarios.');
+  }
+
+  // ============================================================
+  // MÉTODOS GENÉRICOS (usados por las pantallas de veterinario)
+  // ============================================================
+  Future<List<Map<String, dynamic>>> obtenerLista(String ruta) async {
+    final headers = await _headersConToken();
+    final response = await _client.get(
+      Uri.parse('$baseUrl$ruta'),
+      headers: headers,
+    );
+    return _parseLista(response, 'No se pudo obtener la información.');
+  }
+
+  Future<Map<String, dynamic>> crear(String ruta, Map<String, dynamic> datos) async {
+    final headers = await _headersConToken();
+    final response = await _client.post(
+      Uri.parse('$baseUrl$ruta'),
+      headers: headers,
+      body: jsonEncode(datos),
+    );
+    return _parseBodyOk(response, 'No se pudo crear el registro.');
+  }
+
+  Future<void> actualizar(String ruta, Map<String, dynamic> datos) async {
+    final headers = await _headersConToken();
+    final response = await _client.put(
+      Uri.parse('$baseUrl$ruta'),
+      headers: headers,
+      body: jsonEncode(datos),
+    );
+    _verificarOk(response, 'No se pudo actualizar el registro.');
   }
 
   // ============================================================
