@@ -387,7 +387,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
 
     final idMascota = _mascotaEditando?['ID_mascota'];
     if (idMascota == null) {
-      _mostrarAlerta('Error', '❌ No se encontró la mascota a actualizar');
+      _mostrarAlerta('Error', 'No se encontró la mascota a actualizar');
       return;
     }
 

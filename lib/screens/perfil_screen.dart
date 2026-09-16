@@ -336,11 +336,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
             _buildEstadisticas(),
 
             const SizedBox(height: 32),
-
-            // ==========================================================
-            // FOOTER
-            // ==========================================================
-            _buildFooter(),
           ],
         ),
       ),
@@ -800,27 +795,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
               fontWeight: FontWeight.w600,
               color: valueColor ?? const Color(0xFF1A1A2E),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // WIDGETS - FOOTER
-  // ============================================================
-  Widget _buildFooter() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          const Text(
-            '© 2026 PetCard. Todos los derechos reservados.',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ],
       ),
