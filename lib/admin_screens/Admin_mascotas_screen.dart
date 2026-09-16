@@ -1,6 +1,6 @@
 // ============================================================
 // ADMIN · MASCOTAS SCREEN
-// Gestion de todas las mascotas del sistema
+// Gestión de todas las mascotas del sistema
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -16,13 +16,13 @@ class AdminMascotasScreen extends StatefulWidget {
 class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
   static const Color kAzul = Color(0xFF2563EB);
   static const Color kRojo = Color(0xFFDC2626);
-  static const Color kVerde = Color(0xFF16A34A);
 
   final ApiService _api = ApiService();
 
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _mascotas = [];
+  List<Map<String, dynamic>> _clientes = [];
 
   String _busqueda = '';
   String _filtroEspecie = 'Todas';
@@ -31,6 +31,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
   bool _mostrarFormulario = false;
   bool _editando = false;
   dynamic _mascotaEditandoId;
+  final _formMascotaKey = GlobalKey<FormState>();
 
   final _nombreCtrl = TextEditingController();
   final _especieCtrl = TextEditingController();
@@ -58,73 +59,18 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
     super.dispose();
   }
 
-  // ─── VALIDACIONES ───
-  String? _validarTexto(String? value, String campo) {
-    if (value == null || value.trim().isEmpty) {
-      return 'El $campo es obligatorio';
-    }
-    final texto = value.trim();
-    final regex = RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$');
-    if (!regex.hasMatch(texto)) {
-      return 'El $campo no debe contener numeros';
-    }
-    return null;
-  }
-
-  String? _validarPeso(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'El peso es obligatorio';
-    }
-    final peso = double.tryParse(value.trim().replaceAll(',', '.'));
-    if (peso == null) {
-      return 'Ingresa un numero valido';
-    }
-    if (peso <= 0) {
-      return 'El peso debe ser mayor a 0';
-    }
-    if (peso > 150) {
-      return 'El peso maximo es 150 kg';
-    }
-    return null;
-  }
-
-  String? _validarFechaNacimiento(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null;
-    }
-    final fecha = DateTime.tryParse(value.trim());
-    if (fecha == null) {
-      return 'Formato invalido (YYYY-MM-DD)';
-    }
-    if (fecha.isAfter(DateTime.now())) {
-      return 'La fecha no puede ser futura';
-    }
-    return null;
-  }
-
-  String? _calcularEdadDesdeFecha(String? fechaNacimiento) {
-    if (fechaNacimiento == null || fechaNacimiento.isEmpty) return null;
-    final nacimiento = DateTime.tryParse(fechaNacimiento);
-    if (nacimiento == null) return null;
-    final ahora = DateTime.now();
-    int edad = ahora.year - nacimiento.year;
-    if (ahora.month < nacimiento.month ||
-        (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
-      edad--;
-    }
-    if (edad < 0) return null;
-    if (edad == 0) return 'Menos de 1 año';
-    return '$edad años';
-  }
-
-  // ─── CARGA DE DATOS ───
   Future<void> _cargarDatos() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
-      _mascotas = await _api.obtenerMascotasAdmin();
+      final resultados = await Future.wait([
+        _api.obtenerMascotasAdmin(),
+        _api.obtenerClientes(),
+      ]);
+      _mascotas = resultados[0];
+      _clientes = resultados[1];
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
     }
@@ -182,35 +128,66 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
     setState(() => _mostrarFormulario = true);
   }
 
+  String? _validarTexto(String? value, String campo) {
+    if (value == null || value.trim().isEmpty) {
+      return 'El $campo es obligatorio';
+    }
+    final texto = value.trim();
+    final regex = RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$');
+    if (!regex.hasMatch(texto)) {
+      return 'El $campo no debe contener números';
+    }
+    return null;
+  }
+
+  String? _validarPeso(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'El peso es obligatorio';
+    }
+    final peso = double.tryParse(value.trim().replaceAll(',', '.'));
+    if (peso == null) {
+      return 'Ingresa un número válido';
+    }
+    if (peso <= 0) {
+      return 'El peso debe ser mayor a 0';
+    }
+    if (peso > 150) {
+      return 'El peso máximo es 150 kg';
+    }
+    return null;
+  }
+
+  String? _validarFechaNacimiento(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    final fecha = DateTime.tryParse(value.trim());
+    if (fecha == null) {
+      return 'Formato inválido (YYYY-MM-DD)';
+    }
+    if (fecha.isAfter(DateTime.now())) {
+      return 'La fecha no puede ser futura';
+    }
+    return null;
+  }
+
+  String? _calcularEdadDesdeFecha(String? fechaNacimiento) {
+    if (fechaNacimiento == null || fechaNacimiento.isEmpty) return null;
+    final nacimiento = DateTime.tryParse(fechaNacimiento);
+    if (nacimiento == null) return null;
+    final ahora = DateTime.now();
+    int edad = ahora.year - nacimiento.year;
+    if (ahora.month < nacimiento.month ||
+        (ahora.month == nacimiento.month && ahora.day < nacimiento.day)) {
+      edad--;
+    }
+    if (edad < 0) return null;
+    if (edad == 0) return 'Menos de 1 año';
+    return '$edad años';
+  }
+
   Future<void> _guardarMascota() async {
-    // Validaciones
-    final nombreError = _validarTexto(_nombreCtrl.text, 'nombre');
-    if (nombreError != null) {
-      _mostrarAlerta('Atencion', nombreError);
-      return;
-    }
-
-    final especieError = _validarTexto(_especieCtrl.text, 'especie');
-    if (especieError != null) {
-      _mostrarAlerta('Atencion', especieError);
-      return;
-    }
-
-    final razaError = _validarTexto(_razaCtrl.text, 'raza');
-    if (razaError != null) {
-      _mostrarAlerta('Atencion', razaError);
-      return;
-    }
-
-    final pesoError = _validarPeso(_pesoCtrl.text);
-    if (pesoError != null) {
-      _mostrarAlerta('Atencion', pesoError);
-      return;
-    }
-
-    final fechaError = _validarFechaNacimiento(_fechaNacimientoCtrl.text);
-    if (fechaError != null) {
-      _mostrarAlerta('Atencion', fechaError);
+    if (!(_formMascotaKey.currentState?.validate() ?? false)) {
       return;
     }
 
@@ -239,7 +216,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_editando ? '✅ Mascota actualizada' : '✅ Mascota creada'),
-          backgroundColor: kVerde,
+          backgroundColor: const Color(0xFF10B981),
         ),
       );
     } catch (e) {
@@ -359,7 +336,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Gestion de Mascotas',
+                  'Gestión de Mascotas',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -369,7 +346,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: kAzul.withValues(alpha: 0.1),
+                    color: kAzul.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -415,7 +392,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
         TextField(
           onChanged: (v) => setState(() => _busqueda = v),
           decoration: InputDecoration(
-            hintText: 'Buscar por nombre o dueno...',
+            hintText: 'Buscar por nombre o dueño...',
             prefixIcon: const Icon(Icons.search, size: 20),
             filled: true,
             fillColor: Colors.white,
@@ -478,7 +455,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
       alignment: Alignment.center,
       child: Column(
         children: [
-          Icon(icono, size: 40, color: color.withValues(alpha: 0.6)),
+          Icon(icono, size: 40, color: color.withOpacity(0.6)),
           const SizedBox(height: 10),
           Text(texto, style: TextStyle(color: Colors.grey[600], fontSize: 13.5)),
         ],
@@ -497,7 +474,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -538,8 +515,8 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: (m['Sexo'] == 'Hembra')
-                      ? Colors.pink.withValues(alpha: 0.1)
-                      : Colors.blue.withValues(alpha: 0.1),
+                      ? Colors.pink.withOpacity(0.1)
+                      : Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -555,7 +532,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            '👤 Dueno: ${m['Nombre_dueno'] ?? 'Sin dueno'}',
+            '👤 Dueño: ${m['Nombre_dueno'] ?? 'Sin dueño'}',
             style: TextStyle(fontSize: 13, color: Colors.grey[700]),
           ),
           if (m['Peso'] != null)
@@ -610,11 +587,11 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
   }
 
   // ============================================================
-  // FORMULARIO
+  // FORMULARIO (Modal)
   // ============================================================
   Widget _buildFormulario() {
     return Container(
-      color: Colors.black.withValues(alpha: 0.5),
+      color: Colors.black.withOpacity(0.5),
       child: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -625,6 +602,7 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
               width: 500,
               padding: const EdgeInsets.all(24),
               child: Form(
+                key: _formMascotaKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -650,69 +628,45 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-
-                    // NOMBRE - Validacion sin numeros
-                    _campoTextoValidado(
-                      label: 'Nombre',
-                      controller: _nombreCtrl,
+                    _campoTexto(
+                      'Nombre', _nombreCtrl,
                       hint: 'Ej. Max',
-                      validator: (value) => _validarTexto(value, 'nombre'),
+                      validator: (v) => _validarTexto(v, 'nombre'),
                     ),
                     const SizedBox(height: 12),
-
-                    // ESPECIE - Validacion sin numeros
-                    _campoTextoValidado(
-                      label: 'Especie',
-                      controller: _especieCtrl,
+                    _campoTexto(
+                      'Especie', _especieCtrl,
                       hint: 'Ej. Perro, Gato',
-                      validator: (value) => _validarTexto(value, 'especie'),
+                      validator: (v) => _validarTexto(v, 'especie'),
                     ),
                     const SizedBox(height: 12),
-
-                    // RAZA - Validacion sin numeros
-                    _campoTextoValidado(
-                      label: 'Raza',
-                      controller: _razaCtrl,
+                    _campoTexto(
+                      'Raza', _razaCtrl,
                       hint: 'Ej. Labrador',
-                      validator: (value) => _validarTexto(value, 'raza'),
+                      validator: (v) => _validarTexto(v, 'raza'),
                     ),
                     const SizedBox(height: 12),
-
                     _buildDropdownBusqueda(
                       label: 'Sexo',
                       controller: _sexoCtrl,
                       opciones: ['Macho', 'Hembra'],
                     ),
                     const SizedBox(height: 12),
-
-                    // PESO - Validacion 0-150 kg
-                    _campoTextoValidado(
-                      label: 'Peso (kg)',
-                      controller: _pesoCtrl,
+                    _campoTexto(
+                      'Peso (kg)', _pesoCtrl,
                       hint: 'Ej. 25',
                       keyboardType: TextInputType.number,
                       validator: _validarPeso,
                     ),
                     const SizedBox(height: 12),
-
-                    // ID CLIENTE
-                    _campoTexto(
-                      'ID Cliente',
-                      _clienteCtrl,
-                      hint: 'ID del dueno',
-                      keyboardType: TextInputType.number,
-                    ),
+                    _campoTexto('ID Cliente', _clienteCtrl, hint: 'ID del dueño', keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
-
-                    // FECHA DE NACIMIENTO
-                    _campoTextoValidado(
-                      label: 'Fecha nacimiento',
-                      controller: _fechaNacimientoCtrl,
+                    _campoTexto(
+                      'Fecha nacimiento', _fechaNacimientoCtrl,
                       hint: 'YYYY-MM-DD',
                       validator: _validarFechaNacimiento,
                     ),
                     const SizedBox(height: 20),
-
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -741,86 +695,6 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _campoTexto(
-      String label,
-      TextEditingController controller, {
-        String? hint,
-        int maxLines = 1,
-        TextInputType keyboardType = TextInputType.text,
-      }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
-        const SizedBox(height: 4),
-        TextField(
-          controller: controller,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: kAzul, width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            isDense: true,
-            filled: true,
-            fillColor: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _campoTextoValidado({
-    required String label,
-    required TextEditingController controller,
-    String? hint,
-    TextInputType keyboardType = TextInputType.text,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
-        const SizedBox(height: 4),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          validator: validator,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: kAzul, width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            isDense: true,
-            filled: true,
-            fillColor: Colors.white,
-          ),
-        ),
-      ],
     );
   }
 
@@ -856,6 +730,48 @@ class _AdminMascotasScreenState extends State<AdminMascotasScreen> {
                 setState(() => controller.text = value ?? '');
               },
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _campoTexto(
+      String label,
+      TextEditingController controller, {
+        String? hint,
+        int maxLines = 1,
+        TextInputType keyboardType = TextInputType.text,
+        String? Function(String?)? validator,
+      }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          validator: validator,
+          decoration: InputDecoration(
+            hintText: hint,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: kAzul, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            isDense: true,
+            filled: true,
+            fillColor: Colors.white,
           ),
         ),
       ],

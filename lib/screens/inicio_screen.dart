@@ -16,17 +16,11 @@ class InicioScreen extends StatefulWidget {
 }
 
 class _InicioScreenState extends State<InicioScreen> {
-  // ============================================================
-  // COLORES DE LA MARCA
-  // ============================================================
   static const Color kBlue = Color(0xFF2563EB);
   static const Color kBlueDark = Color(0xFF1D4ED8);
   static const Color kGreen = Color(0xFF059669);
   static const Color kGreenDark = Color(0xFF047857);
 
-  // ============================================================
-  // API Y ESTADO
-  // ============================================================
   final ApiService _api = ApiService();
 
   bool _isLoading = true;
@@ -42,9 +36,6 @@ class _InicioScreenState extends State<InicioScreen> {
     _cargarDatos();
   }
 
-  // ============================================================
-  // CARGA DE DATOS
-  // ============================================================
   Future<void> _cargarDatos() async {
     setState(() {
       _isLoading = true;
@@ -80,9 +71,6 @@ class _InicioScreenState extends State<InicioScreen> {
     setState(() => _isLoading = false);
   }
 
-  // ============================================================
-  // UTILIDADES
-  // ============================================================
   String get _saludo {
     final hora = DateTime.now().hour;
     if (hora < 12) return 'Buenos dias';
@@ -124,24 +112,22 @@ class _InicioScreenState extends State<InicioScreen> {
     return 0.0;
   }
 
-  // ============================================================
-  // NAVEGACION
-  // ============================================================
   void _irAMascotas() => widget.onIrATab != null
       ? widget.onIrATab!(2)
       : Navigator.pushNamed(context, '/mis-mascotas');
 
   void _irACitas() => widget.onIrATab != null
-      ? widget.onIrATab!(1)
+      ? widget.onIrATab!(3)
       : Navigator.pushNamed(context, '/citas');
 
-  void _irAGestionServicios() =>
-      Navigator.pushNamed(context, '/gestion-servicios');
+  void _irAGestionServicios() => widget.onIrATab != null
+      ? widget.onIrATab!(4)
+      : Navigator.pushNamed(context, '/gestion-servicios');
 
   void _irANotificaciones() => Navigator.pushNamed(context, '/notificaciones');
 
   void _irAPerfil() => widget.onIrATab != null
-      ? widget.onIrATab!(4)
+      ? widget.onIrATab!(5)
       : Navigator.pushNamed(context, '/perfil');
 
   void _irACarnet(Map<String, dynamic> mascota) {
@@ -161,9 +147,6 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,6 +154,8 @@ class _InicioScreenState extends State<InicioScreen> {
       appBar: AppBar(
         backgroundColor: kBlue,
         elevation: 0,
+
+        automaticallyImplyLeading: false,
         title: Row(
           children: [
             const Icon(Icons.pets, color: Colors.white, size: 24),
@@ -207,7 +192,6 @@ class _InicioScreenState extends State<InicioScreen> {
               _buildBannerBienvenida(),
               const SizedBox(height: 16),
 
-              // ─── SECCION: MIS CARNETS ───
               if (_mascotas.isNotEmpty) ...[
                 _buildSeccionTitulo(
                   icon: Icons.badge,
@@ -242,7 +226,6 @@ class _InicioScreenState extends State<InicioScreen> {
               const SizedBox(height: 12),
               _buildEstadisticas(),
               const SizedBox(height: 32),
-              _buildFooter(),
             ],
           ),
         ),
@@ -250,9 +233,6 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGETS - ESTADO DE ERROR
-  // ============================================================
   Widget _buildErrorState() {
     return Center(
       child: Padding(
@@ -293,9 +273,6 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGETS - BANNER DE BIENVENIDA (AZUL)
-  // ============================================================
   Widget _buildBannerBienvenida() {
     return InkWell(
       onTap: _irAPerfil,
@@ -365,9 +342,6 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGETS - CARNET PEQUEÑO (VERDE)
-  // ============================================================
   Widget _buildCarnetCard(Map<String, dynamic> mascota) {
     final nombre = mascota['Nombre'] ?? 'Mascota';
     final especie = mascota['Especie'] ?? '';
@@ -397,7 +371,6 @@ class _InicioScreenState extends State<InicioScreen> {
         borderRadius: BorderRadius.circular(12),
         child: Row(
           children: [
-            // Icono
             Container(
               width: 40,
               height: 40,
@@ -408,8 +381,6 @@ class _InicioScreenState extends State<InicioScreen> {
               child: const Icon(Icons.pets, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
-
-            // Informacion
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,8 +408,6 @@ class _InicioScreenState extends State<InicioScreen> {
                 ],
               ),
             ),
-
-            // Numero de carnet y flecha
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -465,9 +434,6 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGETS - CARNET VACIO
-  // ============================================================
   Widget _buildCarnetVacio() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -532,9 +498,6 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGETS - TITULO DE SECCION
-  // ============================================================
   Widget _buildSeccionTitulo({
     required IconData icon,
     required String titulo,
@@ -555,9 +518,6 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGETS - ACCIONES RAPIDAS
-  // ============================================================
   Widget _buildAccionesRapidas() {
     final acciones = [
       _Accion(
@@ -657,9 +617,6 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGETS - PROXIMA CITA
-  // ============================================================
   Widget _buildProximaCita() {
     final cita = _proximaCita;
 
@@ -777,9 +734,6 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGETS - ESTADISTICAS
-  // ============================================================
   Widget _buildEstadisticas() {
     final citasActivas = _citas
         .where(
@@ -857,34 +811,8 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  // ============================================================
-  // WIDGETS - FOOTER
-  // ============================================================
-  Widget _buildFooter() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.pets, color: Colors.grey, size: 20),
-          SizedBox(height: 8),
-          Text(
-            '© 2026 PetCard. Todos los derechos reservados.',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-// ============================================================
-// MODELO INTERNO DE ACCION
-// ============================================================
 class _Accion {
   final IconData icon;
   final String label;

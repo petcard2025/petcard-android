@@ -36,7 +36,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart'; // lo genera flutterfire configure
 import 'package:petcard/services/notification_service.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ─── FIREBASE (notificaciones push) ───

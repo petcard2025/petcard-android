@@ -13,16 +13,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _telefonoController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
-  static const Color kBlue = Color(0xFF3B82F6);
+  static const Color kBlue = Color(0xFF2563EB);
   static const Color kBlueDark = Color(0xFF2563EB);
-  static const Color kBg = Color(0xFFF8F9FA);
 
   // Solo letras (incluye tildes y ñ) y espacios; al menos nombre y "algo más"
   static final RegExp _nameRegex =
@@ -41,7 +40,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _telefonoController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -64,9 +63,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
+  // El teléfono sigue siendo opcional (la base de datos admite Telefono
+  // nulo), pero si el usuario escribe algo, validamos que tenga formato
+  // de celular colombiano válido.
   String? _validatePhone(String? value) {
     final v = (value ?? '').trim().replaceAll(RegExp(r'[\s\-().]'), '');
-    if (v.isEmpty) return 'Ingresa tu número de teléfono';
+    if (v.isEmpty) return null;
     if (!_phoneRegex.hasMatch(v)) {
       return 'Ingresa un celular válido (10 dígitos, ej: 3001234567)';
     }
@@ -101,31 +103,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        telefono: _telefonoController.text.trim().replaceAll(RegExp(r'[\s\-().]'), ''),
+        telefono: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim().replaceAll(RegExp(r'[\s\-().]'), ''),
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Registro exitoso. Ya puedes iniciar sesión.')),
+          const SnackBar(content: Text('Registro exitoso')),
         );
-        // Limpiar campos después del registro
-        _nameController.clear();
-        _emailController.clear();
-        _telefonoController.clear();
-        _passwordController.clear();
-        _confirmPasswordController.clear();
-        Navigator.pushReplacementNamed(context, '/login');
+        Navigator.pushReplacementNamed(context, '/login'); // vuelve al login
       }
     } on AuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ ${e.message}')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error inesperado: $e')),
+          SnackBar(content: Text(e.message)),
         );
       }
     } finally {
@@ -136,7 +128,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBg,
+      backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -226,20 +218,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         hintText: 'Tu nombre y apellido',
                         prefixIcon: const Icon(Icons.person_outline, color: kBlue),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: const Color(0xFFF3F4F6),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
+                          borderSide: BorderSide.none,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: kBlue, width: 2),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       validator: _validateName,
                     ),
@@ -262,27 +246,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         hintText: 'correo@ejemplo.com',
                         prefixIcon: const Icon(Icons.mail_outline, color: kBlue),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: const Color(0xFFF3F4F6),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
+                          borderSide: BorderSide.none,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: kBlue, width: 2),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       validator: _validateEmail,
                     ),
                     const SizedBox(height: 20),
 
                     const Text(
-                      'NÚMERO DE TELÉFONO',
+                      'TELÉFONO',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -292,7 +268,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
-                      controller: _telefonoController,
+                      controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       maxLength: 10,
                       decoration: InputDecoration(
@@ -300,21 +276,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         counterText: '',
                         prefixIcon: const Icon(Icons.phone_outlined, color: kBlue),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: const Color(0xFFF3F4F6),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
+                          borderSide: BorderSide.none,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: kBlue, width: 2),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
+                      // Sigue siendo opcional (la base de datos admite
+                      // Telefono nulo), pero si se escribe algo, se valida
+                      // que tenga formato de celular colombiano.
                       validator: _validatePhone,
                     ),
                     const SizedBox(height: 20),
@@ -347,20 +318,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: const Color(0xFFF3F4F6),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
+                          borderSide: BorderSide.none,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: kBlue, width: 2),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
                         helperText: 'Mínimo 6 caracteres: 1 mayúscula y 1 número',
                         helperMaxLines: 2,
                       ),
@@ -403,20 +366,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: const Color(0xFFF3F4F6),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
+                          borderSide: BorderSide.none,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: kBlue, width: 2),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       validator: _validateConfirmPassword,
                     ),
@@ -492,7 +447,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
-// Clipper para la curva del header azul
+// Clipper para la curva del header azul (idéntico al de login)
 class _BottomCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

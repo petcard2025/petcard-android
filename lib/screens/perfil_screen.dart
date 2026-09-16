@@ -8,7 +8,9 @@ import 'dart:convert';
 import '../services/api_service.dart';
 
 class PerfilScreen extends StatefulWidget {
-  const PerfilScreen({super.key});
+  final void Function(int index)? onIrATab;
+
+  const PerfilScreen({super.key, this.onIrATab});
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
@@ -211,15 +213,24 @@ class _PerfilScreenState extends State<PerfilScreen> {
   // NAVEGACIÓN
   // ============================================================
   void _irAMascotas() {
+    if (widget.onIrATab != null) {
+      widget.onIrATab!(2); // Índice de "Mascotas" en MainNavScreen
+      return;
+    }
     Navigator.pushNamed(context, '/mis-mascotas');
   }
 
   void _irACitas() {
+    if (widget.onIrATab != null) {
+      widget.onIrATab!(3); // Índice de "Citas" en MainNavScreen
+      return;
+    }
     Navigator.pushNamed(context, '/citas');
   }
 
   void _irACarnet() {
-    Navigator.pushNamed(context, '/carnet');
+    // El carnet se abre desde Mis Mascotas
+    _irAMascotas();
   }
 
   void _irANotificaciones() {
@@ -271,6 +282,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF2563EB),
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: Row(
           children: [
             Icon(Icons.pets, color: Colors.white, size: 24),
@@ -324,11 +336,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
             _buildEstadisticas(),
 
             const SizedBox(height: 32),
-
-            // ==========================================================
-            // FOOTER
-            // ==========================================================
-            _buildFooter(),
           ],
         ),
       ),
@@ -380,7 +387,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      _rol[0].toUpperCase() + _rol.substring(1),
+                      _rol.isNotEmpty
+                          ? _rol[0].toUpperCase() + _rol.substring(1)
+                          : 'Cliente',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.85),
                         fontSize: 13,
@@ -786,27 +795,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
               fontWeight: FontWeight.w600,
               color: valueColor ?? const Color(0xFF1A1A2E),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // WIDGETS - FOOTER
-  // ============================================================
-  Widget _buildFooter() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          const Text(
-            '© 2026 PetCard. Todos los derechos reservados.',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ],
       ),

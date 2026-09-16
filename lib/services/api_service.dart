@@ -7,10 +7,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class ApiService {
   // Lista de IPs conocidas de tu laptop (la más reciente primero).
   static const List<String> _ipsConocidas = [
-    '10.0.2.2',    // carlos
-    '192.168.80.25',     // laura
-    '192.168.112.1',     // laura
-    '181.59.2.17',       // laura
+    '10.0.2.2',           // carlos
+    '192.168.80.25',      // laura
+    '192.168.112.1',      // laura
+    '192.168.80.13',
+    '172.28.208.1',
+    '181.59.2.17',        // laura
   ];
 
   static String _ipActual = _ipsConocidas.first;
@@ -29,9 +31,7 @@ class ApiService {
           print('✅ IP encontrada: $ip');
           return;
         }
-      } catch (_) {
-        // Esta IP no respondió, se prueba la siguiente.
-      }
+      } catch (_) {}
     }
     print('⚠️ Ninguna IP respondió, usando: $_ipActual');
   }
@@ -51,7 +51,7 @@ class ApiService {
   final http.Client _client = _clienteHttp();
 
   // ============================================================
-  // USUARIO ACTUAL (decodificado del propio JWT)
+  // USUARIO ACTUAL (decodificado del JWT)
   // ============================================================
   Future<Map<String, dynamic>?> obtenerMiUsuario() async {
     final token = await obtenerToken();
@@ -62,12 +62,8 @@ class ApiService {
       String payload = partes[1];
       payload = payload.replaceAll('-', '+').replaceAll('_', '/');
       switch (payload.length % 4) {
-        case 2:
-          payload += '==';
-          break;
-        case 3:
-          payload += '=';
-          break;
+        case 2: payload += '=='; break;
+        case 3: payload += '='; break;
       }
       final decoded = utf8.decode(base64.decode(payload));
       final map = jsonDecode(decoded);
@@ -190,7 +186,7 @@ class ApiService {
   }
 
   // ============================================================
-  // RECUPERAR CONTRASEÑA
+  // RECUPERAR CONTRASEÑA (solicita envío de correo)
   // ============================================================
   Future<void> solicitarRecuperacion(String correo) async {
     final response = await _client.post(
@@ -206,6 +202,33 @@ class ApiService {
     }
 
     throw Exception(data['error'] ?? 'No se pudo procesar la solicitud.');
+  }
+
+  // ============================================================
+  // RESTABLECER CONTRASEÑA CON CÓDIGO DE 6 DÍGITOS
+  // ============================================================
+  Future<void> resetPassword({
+    required String correo,
+    required String codigo,
+    required String nuevaContrasena,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/auth/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'Correo': correo,
+        'codigo': codigo,
+        'nuevaContrasena': nuevaContrasena,
+      }),
+    );
+
+    final data = _parseBody(response);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    throw Exception(data['error'] ?? 'No se pudo restablecer la contraseña.');
   }
 
   // ============================================================

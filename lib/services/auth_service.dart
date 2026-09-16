@@ -29,6 +29,8 @@ class AuthService {
     try {
       final respuesta = await _apiService.login(
         correo: email.trim(),
+        // La contraseña NUNCA se recorta: un espacio intencional
+        // es parte de la contraseña real del usuario.
         contrasena: password,
       );
 
@@ -68,9 +70,29 @@ class AuthService {
   }
 
   /// ─── RECUPERAR CONTRASEÑA ───
+  /// Solicita recuperación de contraseña (envía correo con código).
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _apiService.solicitarRecuperacion(email.trim());
+    } catch (e) {
+      throw AuthException(_mensajeAmigable(e.toString()));
+    }
+  }
+
+  /// Restablece la contraseña usando el código de 6 dígitos enviado
+  /// por correo. La nueva contraseña NO se recorta, por la misma
+  /// razón que en signIn/signUp: un espacio puede ser intencional.
+  Future<void> resetPassword({
+    required String correo,
+    required String codigo,
+    required String nuevaContrasena,
+  }) async {
+    try {
+      await _apiService.resetPassword(
+        correo: correo.trim(),
+        codigo: codigo.trim(),
+        nuevaContrasena: nuevaContrasena,
+      );
     } catch (e) {
       throw AuthException(_mensajeAmigable(e.toString()));
     }
