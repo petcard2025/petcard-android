@@ -156,7 +156,7 @@ class ApiService {
     required String nombre,
     required String correo,
     required String contrasena,
-    required String telefono,
+    String? telefono,
     String rol = 'cliente',
   }) async {
     final response = await _client.post(

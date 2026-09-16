@@ -53,7 +53,7 @@ class AuthService {
     required String name,
     required String email,
     required String password,
-    required String telefono,
+    String? telefono,
     String? rol,
   }) async {
     try {
@@ -61,7 +61,7 @@ class AuthService {
         nombre: name.trim(),
         correo: email.trim(),
         contrasena: password,
-        telefono: telefono.trim(),
+        telefono: telefono?.trim(),
         rol: rol ?? 'cliente',
       );
     } catch (e) {
