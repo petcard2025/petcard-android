@@ -3,23 +3,64 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Lista de IPs conocidas de tu laptop (la más reciente primero).
+  // Clave con la que se guarda en el teléfono la IP escrita a mano
+  // por el usuario desde la pantalla de "Configurar conexión".
+  static const _ipManualKey = 'ip_backend_manual';
+
+  // Lista de IPs conocidas de las laptops del equipo (la más reciente
+  // primero). Se usa solo como respaldo automático si NO hay una IP
+  // manual configurada.
   static const List<String> _ipsConocidas = [
     '10.0.2.2',           // carlos
     '192.168.80.25',      // laura
     '192.168.112.1',      // laura
-    '192.168.80.13',
-    '172.28.208.1',
-    '181.59.2.17',        // laura
+    '192.168.80.19',
+    '172.20.10.3',
+    '10.42.165.181',
+    '181.59.2.17',
+    '192.168.137.246',
   ];
 
+  // IP que realmente se usará. Empieza con la primera de la lista y se
+  // actualiza sola (o con la IP manual guardada) en resolverIp().
   static String _ipActual = _ipsConocidas.first;
 
   static String get baseUrl => 'https://$_ipActual:3001/api';
+  static String get ipActual => _ipActual;
 
+  /// Guarda una IP escrita a mano por el usuario (desde la pantalla de
+  /// configuración) y la deja activa de inmediato, sin recompilar la app.
+  static Future<void> guardarIpManual(String ip) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_ipManualKey, ip);
+    _ipActual = ip;
+  }
+
+  /// Borra la IP manual guardada, para volver a la detección automática.
+  static Future<void> borrarIpManual() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_ipManualKey);
+  }
+
+  /// Devuelve la IP guardada manualmente, o null si nunca se guardó una.
+  static Future<String?> obtenerIpManualGuardada() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_ipManualKey);
+  }
+
+  /// Si hay una IP guardada manualmente, se usa esa directamente (sin
+  /// necesidad de estar en la lista _ipsConocidas). Si no hay ninguna
+  /// guardada, se prueba cada IP conocida y se usa la primera que responda.
+  /// Llamar una vez al iniciar la app, antes de mostrar el login.
   static Future<void> resolverIp() async {
+    final ipManual = await obtenerIpManualGuardada();
+    if (ipManual != null && ipManual.isNotEmpty) {
+      _ipActual = ipManual;
+      return;
+    }
     for (final ip in _ipsConocidas) {
       try {
         final cliente = _clienteHttp();
@@ -28,31 +69,51 @@ class ApiService {
             .timeout(const Duration(seconds: 2));
         if (respuesta.statusCode >= 200 && respuesta.statusCode < 500) {
           _ipActual = ip;
-          print('✅ IP encontrada: $ip');
           return;
         }
-      } catch (_) {}
+      } catch (_) {
+        // Esta IP no respondió, se prueba la siguiente.
+      }
     }
-    print('⚠️ Ninguna IP respondió, usando: $_ipActual');
+    // Si ninguna respondió, se deja la primera por defecto (el error real
+    // se mostrará cuando el usuario intente iniciar sesión).
+  }
+
+  /// Prueba una IP específica (sin guardarla) para saber si el backend
+  /// responde ahí. Usado por el diálogo de "Configurar conexión".
+  static Future<bool> probarIp(String ip) async {
+    try {
+      final cliente = _clienteHttp();
+      final respuesta = await cliente
+          .get(Uri.parse('https://$ip:3001/api/servicios'))
+          .timeout(const Duration(seconds: 3));
+      return respuesta.statusCode >= 200 && respuesta.statusCode < 500;
+    } catch (_) {
+      return false;
+    }
   }
 
   final _storage = const FlutterSecureStorage();
   static const _tokenKey = 'jwt_token';
   static const _usuarioKey = 'usuario_actual';
 
+  // Cliente HTTP que acepta el certificado autofirmado del backend de
+  // desarrollo, sea cual sea la IP configurada (incluidas las escritas
+  // a mano, que por definición no están en _ipsConocidas).
   static http.Client _clienteHttp() {
     final httpClient = HttpClient()
-      ..badCertificateCallback = (cert, host, port) {
-        return _ipsConocidas.contains(host);
-      };
+      ..badCertificateCallback = (cert, host, port) => true;
     return IOClient(httpClient);
   }
 
   final http.Client _client = _clienteHttp();
 
   // ============================================================
-  // USUARIO ACTUAL (decodificado del JWT)
+  // USUARIO ACTUAL (decodificado del propio JWT)
   // ============================================================
+  // El token JWT ya trae ID_usuario, Nombre, Correo y Rol firmados por
+  // el backend, así que los leemos directamente de ahí sin otra llamada
+  // al servidor.
   Future<Map<String, dynamic>?> obtenerMiUsuario() async {
     final token = await obtenerToken();
     if (token == null) return null;
@@ -62,8 +123,12 @@ class ApiService {
       String payload = partes[1];
       payload = payload.replaceAll('-', '+').replaceAll('_', '/');
       switch (payload.length % 4) {
-        case 2: payload += '=='; break;
-        case 3: payload += '='; break;
+        case 2:
+          payload += '==';
+          break;
+        case 3:
+          payload += '=';
+          break;
       }
       final decoded = utf8.decode(base64.decode(payload));
       final map = jsonDecode(decoded);
@@ -89,10 +154,15 @@ class ApiService {
     await _storage.delete(key: _tokenKey);
   }
 
+  /// Guarda localmente los datos del usuario que devolvió el login
+  /// (Nombre, Correo, Telefono, Rol) para poder mostrarlos luego en
+  /// "Mi Perfil" sin depender de que AuthService siga vivo en memoria.
   Future<void> _guardarUsuarioLocal(Map<String, dynamic> usuario) async {
     await _storage.write(key: _usuarioKey, value: jsonEncode(usuario));
   }
 
+  /// Datos del usuario guardados en el último login. Devuelve null si
+  /// nunca se guardaron o si no hay sesión.
   Future<Map<String, dynamic>?> obtenerUsuarioGuardado() async {
     final raw = await _storage.read(key: _usuarioKey);
     if (raw == null) return null;
@@ -106,7 +176,6 @@ class ApiService {
   Future<Map<String, String>> _headersConToken() async {
     final token = await obtenerToken();
     if (token == null) {
-      print('DEBUG - Error: No se encontró token en el almacenamiento.');
       throw Exception('No hay sesión activa.');
     }
     return {
@@ -130,9 +199,6 @@ class ApiService {
         'Contrasena': contrasena,
       }),
     );
-
-    print('🔍 DEBUG status: ${response.statusCode}');
-    print('🔍 DEBUG body: ${response.body}');
 
     final data = _parseBody(response);
 
@@ -287,6 +353,8 @@ class ApiService {
     return _parseLista(response, 'No se pudieron obtener los clientes.');
   }
 
+  /// Devuelve el registro de "cliente" (ID_cliente, Direccion, ID_usuario)
+  /// asociado a un usuario, o null si el usuario no tiene cliente.
   Future<Map<String, dynamic>?> obtenerClientePorUsuario(dynamic idUsuario) async {
     final headers = await _headersConToken();
     final response = await _client.get(
@@ -309,6 +377,8 @@ class ApiService {
     return _parseLista(response, 'No se pudieron obtener las mascotas.');
   }
 
+  /// Mascotas de un cliente en particular (para dropdowns del cliente,
+  /// no el listado completo de administrador).
   Future<List<Map<String, dynamic>>> obtenerMascotasPorCliente(dynamic idCliente) async {
     final headers = await _headersConToken();
     final response = await _client.get(
@@ -348,8 +418,12 @@ class ApiService {
   }
 
   // ============================================================
-  // MASCOTAS (SESIÓN ACTUAL) - "Mis mascotas"
+  // MASCOTAS (SESIÓN ACTUAL) - "Mis mascotas" del cliente logueado
   // ============================================================
+
+  /// ID_cliente del usuario que inició sesión. Si aún no tiene un
+  /// registro de cliente (p. ej. se registró pero nunca agregó una
+  /// mascota), lo crea automáticamente.
   Future<dynamic> obtenerIdClienteActual() async {
     final usuario = await obtenerMiUsuario();
     final idUsuario = usuario?['ID_usuario'];
@@ -362,6 +436,7 @@ class ApiService {
       return cliente['ID_cliente'];
     }
 
+    // No existe todavía: se crea el registro de cliente para este usuario.
     final headers = await _headersConToken();
     final response = await _client.post(
       Uri.parse('$baseUrl/clientes'),
@@ -375,11 +450,13 @@ class ApiService {
     return datosCliente['ID_cliente'];
   }
 
+  /// Mascotas del usuario logueado.
   Future<List<Map<String, dynamic>>> obtenerMisMascotas() async {
     final idCliente = await obtenerIdClienteActual();
     return obtenerMascotasPorCliente(idCliente);
   }
 
+  /// Crea una mascota y la asocia automáticamente al cliente logueado.
   Future<Map<String, dynamic>> crearMiMascota(Map<String, dynamic> datos) async {
     final idCliente = await obtenerIdClienteActual();
     final payload = {...datos, 'ID_cliente': idCliente};
@@ -499,6 +576,7 @@ class ApiService {
     _verificarOk(response, 'No se pudo marcar como leída.');
   }
 
+  /// Notificaciones de un usuario en particular (para "Mis notificaciones").
   Future<List<Map<String, dynamic>>> obtenerNotificacionesPorUsuario(dynamic idUsuario) async {
     final headers = await _headersConToken();
     final response = await _client.get(
@@ -508,6 +586,7 @@ class ApiService {
     return _parseLista(response, 'No se pudieron obtener tus notificaciones.');
   }
 
+  /// Notificaciones del usuario logueado, resolviendo el ID a partir del JWT.
   Future<List<Map<String, dynamic>>> obtenerMisNotificaciones() async {
     final usuario = await obtenerMiUsuario();
     final idUsuario = usuario?['ID_usuario'];
@@ -517,6 +596,7 @@ class ApiService {
     return obtenerNotificacionesPorUsuario(idUsuario);
   }
 
+  /// Marca varias notificaciones como leídas de una sola vez.
   Future<void> marcarMultiplesNotificacionesLeidas(List<dynamic> ids) async {
     final headers = await _headersConToken();
     final response = await _client.patch(
@@ -568,6 +648,8 @@ class ApiService {
     _verificarOk(response, 'No se pudo actualizar la cita.');
   }
 
+  /// Tu backend solo permite cambiar el "Estado" de una cita vía PATCH
+  /// (el PUT no acepta ese campo), por eso este método es aparte.
   Future<void> cambiarEstadoCita(dynamic id, String estado) async {
     final headers = await _headersConToken();
     final response = await _client.patch(
@@ -578,6 +660,7 @@ class ApiService {
     _verificarOk(response, 'No se pudo cambiar el estado de la cita.');
   }
 
+  /// Horas ya ocupadas de un veterinario en una fecha (evita doble cita).
   Future<List<String>> obtenerHorasOcupadas({
     required dynamic idVeterinario,
     required String fecha,
@@ -588,7 +671,7 @@ class ApiService {
       headers: headers,
     );
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      final decoded = jsonDecode(response.body);
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       final horas = decoded['horasOcupadas'];
       if (horas is List) return horas.map((e) => e.toString()).toList();
     }
@@ -692,6 +775,8 @@ class ApiService {
   // ============================================================
   // HELPERS
   // ============================================================
+  // Decodificamos como UTF-8 explícitamente (no response.body a secas)
+  // para que tildes y ñ que vienen del backend no lleguen corruptas.
   Map<String, dynamic> _parseBody(http.Response response) {
     try {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -708,7 +793,7 @@ class ApiService {
       ) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       try {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic>) return decoded;
         return {};
       } catch (_) {
@@ -725,7 +810,7 @@ class ApiService {
       ) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       try {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is List) {
           return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
         }

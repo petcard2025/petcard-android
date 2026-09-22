@@ -49,6 +49,96 @@ class _LoginScreenState extends State<LoginScreen> {
     return null;
   }
 
+  Future<void> _mostrarDialogoConfigurarIp() async {
+    final ipController = TextEditingController(text: ApiService.ipActual);
+    String? mensajeEstado;
+    bool probando = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Configurar conexión al servidor'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Escribe la IP local de la laptop donde corre el backend '
+                        '(la que te da "ipconfig" en Windows). No hace falta '
+                        'recompilar la app después de guardar.',
+                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: ipController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'IP del backend',
+                      hintText: 'Ej: 192.168.1.10',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (mensajeEstado != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      mensajeEstado!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: mensajeEstado!.startsWith('✓') ? Colors.green : Colors.red,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: probando
+                      ? null
+                      : () async {
+                    setDialogState(() {
+                      probando = true;
+                      mensajeEstado = null;
+                    });
+                    final ip = ipController.text.trim();
+                    final ok = await ApiService.probarIp(ip);
+                    setDialogState(() {
+                      probando = false;
+                      mensajeEstado = ok
+                          ? '✓ El servidor respondió correctamente'
+                          : '✗ No se pudo conectar a esa IP';
+                    });
+                  },
+                  child: Text(probando ? 'Probando...' : 'Probar conexión'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final ip = ipController.text.trim();
+                    if (ip.isEmpty) return;
+                    await ApiService.guardarIpManual(ip);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('IP guardada: $ip')),
+                      );
+                    }
+                  },
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -65,6 +155,8 @@ class _LoginScreenState extends State<LoginScreen> {
           const SnackBar(content: Text('Inicio de sesión exitoso')),
         );
 
+        // Revisamos el rol del usuario que devolvió el backend para
+        // decidir a qué pantalla lo mandamos.
         final usuario = _authService.usuarioActual;
         final rol = (usuario?['Rol'] ?? usuario?['rol'] ?? '')
             .toString()
@@ -74,6 +166,9 @@ class _LoginScreenState extends State<LoginScreen> {
             ?.toString();
 
         if (rol == 'admin' || rol == 'administrador') {
+          // pushNamedAndRemoveUntil borra TODA la pila anterior (landing + login),
+          // así el botón "atrás" del dispositivo cierra la app en vez de
+          // devolver al usuario al login.
           Navigator.pushNamedAndRemoveUntil(
             context,
             '/admin',
@@ -281,7 +376,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       'Tu mascota te está esperando',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: Colors.white.withOpacity(0.9),
                         fontSize: 15,
                       ),
                     ),
@@ -527,6 +622,19 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Configuración de IP del servidor (para desarrollo/demo)
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _mostrarDialogoConfigurarIp,
+                        icon: const Icon(Icons.settings_ethernet, size: 16, color: Colors.black38),
+                        label: const Text(
+                          'Configurar conexión',
+                          style: TextStyle(color: Colors.black38, fontSize: 12),
                         ),
                       ),
                     ),

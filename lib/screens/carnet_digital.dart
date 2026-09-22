@@ -46,10 +46,48 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   String _telefonoPropietario = '';
   List<Map<String, dynamic>> _vacunas = [];
 
+  // ------------------------------------------------------------
+  // Formulario "Agregar Vacuna" (igual al de la web)
+  // ------------------------------------------------------------
+  final _nombreVacunaCtrl = TextEditingController();
+  final _fechaAplicacionCtrl = TextEditingController();
+  final _proximaDosisCtrl = TextEditingController();
+  final _loteCtrl = TextEditingController();
+  final _observacionesCtrl = TextEditingController();
+  String _estadoVacuna = 'Aplicada';
+  bool _guardandoVacuna = false;
+
+  static const List<String> _vacunasSugeridas = [
+    'Antirrábica',
+    'Triple Felina',
+    'Parvovirus',
+    'Moquillo',
+    'Leptospirosis',
+    'Bordetella',
+    'Rabia',
+    'Leucemia Felina',
+    'Panleucopenia',
+    'Calicivirus',
+    'Rinotraqueitis',
+    'Hepatitis Infecciosa',
+    'Parainfluenza',
+    'Coronavirus',
+  ];
+
   @override
   void initState() {
     super.initState();
     _cargarDatos();
+  }
+
+  @override
+  void dispose() {
+    _nombreVacunaCtrl.dispose();
+    _fechaAplicacionCtrl.dispose();
+    _proximaDosisCtrl.dispose();
+    _loteCtrl.dispose();
+    _observacionesCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _cargarDatos() async {
@@ -77,10 +115,6 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
       _vacunas = todasVacunas
           .where((v) => v['ID_mascota'] == widget.idMascota)
           .toList();
-
-      if (_vacunas.isEmpty) {
-        _error = 'Esta mascota no tiene vacunas registradas aún.';
-      }
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
       debugPrint('Error cargando carnet: $_error');
@@ -88,6 +122,426 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
 
     if (!mounted) return;
     setState(() => _isLoading = false);
+  }
+
+  void _limpiarFormularioVacuna() {
+    _nombreVacunaCtrl.clear();
+    _fechaAplicacionCtrl.clear();
+    _proximaDosisCtrl.clear();
+    _loteCtrl.clear();
+    _observacionesCtrl.clear();
+    _estadoVacuna = 'Aplicada';
+  }
+
+  Future<void> _elegirFecha(
+      TextEditingController controller, StateSetter setModalState) async {
+    final ahora = DateTime.now();
+    final fechaActual = DateTime.tryParse(controller.text);
+    final elegida = await showDatePicker(
+      context: context,
+      initialDate: fechaActual ?? ahora,
+      firstDate: DateTime(ahora.year - 20),
+      lastDate: DateTime(ahora.year + 20),
+    );
+    if (elegida != null) {
+      controller.text =
+      '${elegida.year.toString().padLeft(4, '0')}-${elegida.month.toString().padLeft(2, '0')}-${elegida.day.toString().padLeft(2, '0')}';
+      setModalState(() {});
+    }
+  }
+
+  Future<void> _guardarVacuna() async {
+    final nombre = _nombreVacunaCtrl.text.trim();
+    if (nombre.isEmpty) return;
+
+    setState(() => _guardandoVacuna = true);
+    try {
+      await _api.crearVacuna({
+        'ID_mascota': widget.idMascota,
+        'ID_servicio': 2,
+        'Nombre_vacuna': nombre,
+        'Fecha_aplicacion': _fechaAplicacionCtrl.text.trim().isEmpty
+            ? null
+            : _fechaAplicacionCtrl.text.trim(),
+        'Proxima_dosis': _proximaDosisCtrl.text.trim().isEmpty
+            ? null
+            : _proximaDosisCtrl.text.trim(),
+        'Lote': _loteCtrl.text.trim(),
+        'Observaciones': _observacionesCtrl.text.trim(),
+        'Estado': _estadoVacuna,
+      });
+
+      if (!mounted) return;
+      Navigator.pop(context); // cierra el modal
+      await _cargarDatos(); // refresca la lista de vacunas
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Vacuna registrada correctamente')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '❌ Error al guardar vacuna: ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _guardandoVacuna = false);
+    }
+  }
+
+  void _mostrarFormularioVacuna() {
+    _limpiarFormularioVacuna();
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header verde, igual que en la web
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFDCFCE7), Color(0xFFF0FDF4)],
+                          ),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.vaccines,
+                                  color: Color(0xFF16A34A)),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Agregar Vacuna',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Color(0xFF14532D),
+                                    ),
+                                  ),
+                                  Text(
+                                    'Registra una nueva vacuna para ${widget.nombreMascota}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF166534),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () => Navigator.pop(dialogContext),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Body con el formulario
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _labelVacuna('NOMBRE DE LA VACUNA',
+                                  obligatorio: true),
+                              const SizedBox(height: 6),
+                              Autocomplete<String>(
+                                optionsBuilder: (valor) {
+                                  if (valor.text.isEmpty) {
+                                    return const Iterable<String>.empty();
+                                  }
+                                  return _vacunasSugeridas.where((v) => v
+                                      .toLowerCase()
+                                      .contains(valor.text.toLowerCase()));
+                                },
+                                onSelected: (v) {
+                                  _nombreVacunaCtrl.text = v;
+                                  setModalState(() {});
+                                },
+                                fieldViewBuilder:
+                                    (context, controller, focusNode, _) {
+                                  return TextField(
+                                    controller: controller,
+                                    focusNode: focusNode,
+                                    onChanged: (v) {
+                                      _nombreVacunaCtrl.text = v;
+                                      setModalState(() {});
+                                    },
+                                    decoration: _inputDecoration(
+                                        'Ej: Antirrábica, Parvovirus...'),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                      children: [
+                                        _labelVacuna('FECHA DE APLICACIÓN',
+                                            icon: Icons.calendar_today),
+                                        const SizedBox(height: 6),
+                                        TextField(
+                                          controller: _fechaAplicacionCtrl,
+                                          readOnly: true,
+                                          onTap: () => _elegirFecha(
+                                              _fechaAplicacionCtrl,
+                                              setModalState),
+                                          decoration:
+                                          _inputDecoration('dd/mm/aaaa'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                      children: [
+                                        _labelVacuna('PRÓXIMA DOSIS',
+                                            icon: Icons.access_time),
+                                        const SizedBox(height: 6),
+                                        TextField(
+                                          controller: _proximaDosisCtrl,
+                                          readOnly: true,
+                                          onTap: () => _elegirFecha(
+                                              _proximaDosisCtrl,
+                                              setModalState),
+                                          decoration:
+                                          _inputDecoration('dd/mm/aaaa'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                      children: [
+                                        _labelVacuna('LOTE / SERIE'),
+                                        const SizedBox(height: 6),
+                                        TextField(
+                                          controller: _loteCtrl,
+                                          decoration:
+                                          _inputDecoration('Ej: A-1234'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                      children: [
+                                        _labelVacuna('ESTADO'),
+                                        const SizedBox(height: 6),
+                                        DropdownButtonFormField<String>(
+                                          initialValue: _estadoVacuna,
+                                          isExpanded: true,
+                                          decoration: _inputDecoration(null),
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: 'Aplicada',
+                                              child: Text('✅ Aplicada',
+                                                  overflow:
+                                                  TextOverflow.ellipsis),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'Proxima',
+                                              child: Text('🔔 Próxima',
+                                                  overflow:
+                                                  TextOverflow.ellipsis),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'Atrasada',
+                                              child: Text('⚠️ Atrasada',
+                                                  overflow:
+                                                  TextOverflow.ellipsis),
+                                            ),
+                                          ],
+                                          onChanged: (v) {
+                                            setModalState(() {
+                                              _estadoVacuna = v ?? 'Aplicada';
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              _labelVacuna('OBSERVACIONES / REACCIONES'),
+                              const SizedBox(height: 6),
+                              TextField(
+                                controller: _observacionesCtrl,
+                                maxLines: 3,
+                                decoration: _inputDecoration(
+                                    'Ej: Sin reacciones adversas. Aplicada en clínica veterinaria...'),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Footer con botones
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(dialogContext),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('Cancelar'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: (_nombreVacunaCtrl.text
+                                    .trim()
+                                    .isEmpty ||
+                                    _guardandoVacuna)
+                                    ? null
+                                    : _guardarVacuna,
+                                icon: _guardandoVacuna
+                                    ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                    : const Icon(Icons.check, size: 18),
+                                label: const Text('Guardar Vacuna'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF16A34A),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _labelVacuna(String texto,
+      {bool obligatorio = false, IconData? icon}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 13, color: Colors.grey[600]),
+          const SizedBox(width: 4),
+        ],
+        Flexible(
+          child: Text(
+            texto,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[700],
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+        if (obligatorio)
+          const Text(' *', style: TextStyle(color: Colors.red, fontSize: 12)),
+      ],
+    );
+  }
+
+  InputDecoration _inputDecoration(String? hint) {
+    return InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: const Color(0xFFF9FAFB),
+      contentPadding:
+      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFF16A34A), width: 1.5),
+      ),
+    );
   }
 
   String _calcularEdad() {
@@ -596,16 +1050,60 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
             _buildCarnetCard(),
             const SizedBox(height: 24),
 
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Vacunas Registradas',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A)),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _mostrarFormularioVacuna,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: const Icon(Icons.add, size: 18, color: Color(0xFF16A34A)),
+                  label: const Text(
+                    'Agregar Vacuna',
+                    style: TextStyle(
+                        color: Color(0xFF16A34A), fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             if (_vacunas.isNotEmpty) ...[
-              const Text(
-                'Vacunas Registradas',
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A)),
-              ),
-              const SizedBox(height: 12),
               ..._vacunas.map((v) => _buildVacunaCard(v)),
+              const SizedBox(height: 12),
+            ] else ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.vaccines_outlined, color: Colors.grey[400], size: 32),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Esta mascota no tiene vacunas registradas aún.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 12),
             ],
 

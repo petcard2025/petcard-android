@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/app_events.dart';
 
 // ============================================================
 // CONTROLADOR COMPARTIDO ENTRE PESTAÑAS
@@ -119,14 +120,24 @@ class _CitasScreenState extends State<CitasScreen> {
   void initState() {
     super.initState();
     widget.controller?.addListener(_onSolicitudDesdeOtraPestana);
+    // Si desde "Mis Mascotas" se registra/edita/elimina una mascota,
+    // esta pestaña ya está viva en memoria (IndexedStack) con datos
+    // viejos: nos suscribimos para recargar sola, sin que el usuario
+    // tenga que cambiar de pestaña ni cerrar sesión.
+    AppEvents.instance.mascotasCambiaron.addListener(_onMascotasCambiaron);
     _cargarDatos();
   }
 
   @override
   void dispose() {
     widget.controller?.removeListener(_onSolicitudDesdeOtraPestana);
+    AppEvents.instance.mascotasCambiaron.removeListener(_onMascotasCambiaron);
     _notasController.dispose();
     super.dispose();
+  }
+
+  void _onMascotasCambiaron() {
+    if (mounted) _cargarDatos();
   }
 
   // Se dispara cuando, estando en otra pestaña (por ejemplo Servicios),
@@ -186,14 +197,11 @@ class _CitasScreenState extends State<CitasScreen> {
       if (miUsuario == null) {
         throw Exception('No hay sesión activa. Vuelve a iniciar sesión.');
       }
-      final idUsuario = miUsuario['ID_usuario'];
 
-      // 2. Resolver su ID_cliente
-      final cliente = await _api.obtenerClientePorUsuario(idUsuario);
-      if (cliente == null) {
-        throw Exception('Este usuario no tiene un perfil de cliente asociado.');
-      }
-      _idCliente = cliente['ID_cliente'];
+      // 2. Resolver su ID_cliente. obtenerIdClienteActual crea el perfil
+      //    de cliente automaticamente si todavia no existe (por ejemplo,
+      //    justo despues de registrarse), en vez de fallar.
+      _idCliente = await _api.obtenerIdClienteActual();
 
       // 3. Traer TODAS las citas (el backend no filtra por cliente) y
       //    quedarnos solo con las de este cliente.
@@ -205,7 +213,8 @@ class _CitasScreenState extends State<CitasScreen> {
       // Ordenar por fecha/hora (las más próximas primero)
       _citas.sort((a, b) {
         final fechaA = '${a['Fecha'] ?? ''} ${a['Hora'] ?? ''}';
-        final fechaB = '${b['Fecha'] ?? ''} ${b['Hora'] ?? ''}';
+        final fechaB = '${b['Fecha'] ?? ''
+        } ${b['Hora'] ?? ''}';
         return fechaA.compareTo(fechaB);
       });
 

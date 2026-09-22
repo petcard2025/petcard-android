@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'citas_screen.dart';
 import '../services/api_service.dart';
+import '../services/app_events.dart';
 
 class ServiceModel {
   final IconData icon;
@@ -110,7 +111,21 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
   @override
   void initState() {
     super.initState();
+    // Si desde "Mis Mascotas" se registra/edita/elimina una mascota,
+    // esta pestaña ya está viva en memoria (IndexedStack) con datos
+    // viejos: nos suscribimos para recargar sola.
+    AppEvents.instance.mascotasCambiaron.addListener(_onMascotasCambiaron);
     _cargarDatos();
+  }
+
+  @override
+  void dispose() {
+    AppEvents.instance.mascotasCambiaron.removeListener(_onMascotasCambiaron);
+    super.dispose();
+  }
+
+  void _onMascotasCambiaron() {
+    if (mounted) _cargarDatos();
   }
 
   Future<void> _cargarDatos() async {
