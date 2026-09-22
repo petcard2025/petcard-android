@@ -1,11 +1,8 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
+import 'notification_service.dart';
 
-/// Servicio centralizado de autenticación.
-///
-/// Ahora todo pasa por el backend propio (JWT + MySQL),
-/// sin depender de Firebase Authentication.
 class AuthService {
   // Patrón Singleton
   static final AuthService _instance = AuthService._internal();
@@ -13,8 +10,9 @@ class AuthService {
   AuthService._internal();
 
   final ApiService _apiService = ApiService();
-
+  final NotificationService _notificationService = NotificationService();
   Map<String, dynamic>? _usuarioActual;
+
   Map<String, dynamic>? get usuarioActual => _usuarioActual;
 
   Future<void> _persistirUsuario(Map<String, dynamic> usuario) async {
@@ -23,7 +21,7 @@ class AuthService {
     _usuarioActual = usuario;
   }
 
-  /// Inicia sesión contra el backend y guarda el JWT localmente.
+  /// ─── LOGIN ───
   Future<Map<String, dynamic>> signIn({
     required String email,
     required String password,
@@ -40,13 +38,17 @@ class AuthService {
       if (usuario != null) {
         await _persistirUsuario(usuario);
       }
+
+      // Registrar el token de este dispositivo ahora que hay sesión
+      await _notificationService.inicializar();
+
       return respuesta;
     } catch (e) {
       throw AuthException(_mensajeAmigable(e.toString()));
     }
   }
 
-  /// Registra un nuevo usuario directamente en MySQL.
+  /// ─── REGISTRO ───
   Future<Map<String, dynamic>> signUp({
     required String name,
     required String email,
@@ -59,7 +61,7 @@ class AuthService {
         nombre: name.trim(),
         correo: email.trim(),
         contrasena: password,
-        telefono: telefono,
+        telefono: telefono?.trim(),
         rol: rol ?? 'cliente',
       );
     } catch (e) {
@@ -67,6 +69,7 @@ class AuthService {
     }
   }
 
+  /// ─── RECUPERAR CONTRASEÑA ───
   /// Solicita recuperación de contraseña (envía correo con código).
   Future<void> sendPasswordResetEmail(String email) async {
     try {
@@ -95,23 +98,22 @@ class AuthService {
     }
   }
 
-  /// Cierra sesión
+  /// ─── CERRAR SESIÓN ───
   Future<void> signOut() async {
+    await _notificationService.eliminarToken();
     await _apiService.logout();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('petcard_usuario_actual');
     _usuarioActual = null;
   }
 
-  /// Verifica si hay una sesión activa
+  /// ─── VERIFICAR SESIÓN ACTIVA ───
   Future<bool> haySesionActiva() async {
     final token = await _apiService.obtenerToken();
     if (token == null) return false;
 
-    // Si ya tenemos el usuario en memoria, genial
     if (_usuarioActual != null) return true;
 
-    // Si no, intentamos cargarlo de SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('petcard_usuario_actual');
     if (userStr != null) {
@@ -127,9 +129,6 @@ class AuthService {
     if (limpio.contains('Correo o contrasena incorrectos')) {
       return 'Correo o contraseña incorrectos';
     }
-    if (limpio.contains('SocketException') || limpio.contains('Connection')) {
-      return 'Error de conexión a Internet';
-    }
     return limpio;
   }
 }
@@ -137,7 +136,6 @@ class AuthService {
 class AuthException implements Exception {
   final String message;
   AuthException(this.message);
-
   @override
   String toString() => message;
 }

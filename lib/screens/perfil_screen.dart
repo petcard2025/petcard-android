@@ -31,7 +31,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
   String _apellido = '';
   String _email = '';
   String _telefono = '';
-  String _direccion = '';
   String _emergencia = '';
   String _rol = 'cliente';
 
@@ -40,7 +39,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
   final TextEditingController _apellidoController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
-  final TextEditingController _direccionController = TextEditingController();
   final TextEditingController _emergenciaController = TextEditingController();
 
   // ============================================================
@@ -58,7 +56,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
     _apellidoController.dispose();
     _emailController.dispose();
     _telefonoController.dispose();
-    _direccionController.dispose();
     _emergenciaController.dispose();
     super.dispose();
   }
@@ -88,24 +85,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
         _email = (usuario['Correo'] ?? '').toString();
         _telefono = (usuario['Telefono'] ?? '').toString();
         _rol = (usuario['Rol'] ?? 'cliente').toString();
-
-        // 2) La dirección vive en la tabla `cliente`, no en `usuario`.
-        final idUsuario = usuario['ID_usuario'];
-        if (idUsuario != null) {
-          try {
-            final cliente = await _api.obtenerClientePorUsuario(idUsuario);
-            _direccion = (cliente?['Direccion'] ?? '').toString();
-          } catch (e) {
-            debugPrint('Error obteniendo dirección del cliente: $e');
-          }
-        }
       }
 
       _nombreController.text = _nombre;
       _apellidoController.text = _apellido;
       _emailController.text = _email;
       _telefonoController.text = _telefono;
-      _direccionController.text = _direccion;
       _emergenciaController.text = _emergencia;
     } catch (e) {
       debugPrint('Error cargando usuario: $e');
@@ -142,7 +127,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
         'Apellido': _apellidoController.text.trim(),
         'Correo': _emailController.text.trim(),
         'Telefono': _telefonoController.text.trim(),
-        'Direccion': _direccionController.text.trim(),
         'Emergencia': _emergenciaController.text.trim(),
       };
 
@@ -172,7 +156,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
       _apellido = usuarioActualizado['Apellido']!;
       _email = usuarioActualizado['Correo']!;
       _telefono = usuarioActualizado['Telefono']!;
-      _direccion = usuarioActualizado['Direccion']!;
       _emergencia = usuarioActualizado['Emergencia']!;
 
       setState(() {
@@ -546,14 +529,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-
-          // Dirección
-          _buildCampo(
-            label: 'Dirección',
-            controller: _direccionController,
-            enabled: _enEdicion,
           ),
           const SizedBox(height: 16),
 

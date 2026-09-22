@@ -17,6 +17,7 @@ import 'package:petcard/screens/gestion_servicios.dart';
 // import 'package:petcard/screens/carnet_digital.dart';
 import 'package:petcard/screens/notificaciones_screen.dart';
 import 'package:petcard/services/api_service.dart';
+import 'package:petcard/services/auth_service.dart';
 
 // ============================================================
 // IMPORTS DE ADMIN
@@ -30,18 +31,35 @@ import 'package:petcard/admin_screens/Admin_citas_screen.dart';
 import 'package:petcard/admin_screens/Admin_mascotas_screen.dart';
 import 'package:petcard/admin_screens/Admin_vacunas_screen.dart';
 
+// IMPORTS DE NOTIFICACIONES FIREBASE
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart'; // lo genera flutterfire configure
+import 'package:petcard/services/notification_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ─── FIREBASE (notificaciones push) ───
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // ─── SUPABASE ───
   await Supabase.initialize(
     url: 'https://evaanefrbursctyosbbp.supabase.co',
     publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YWFuZWZyYnVyc2N0eW9zYmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMTQwNjIsImV4cCI6MjEwMjU5MDA2Mn0.c5p9ddkHTiLu5yK2VvezVxxUFvoPk16c5yzn7P_ELZc',
   );
 
+  // ─── FORMATO DE FECHAS EN ESPAÑOL ───
   await initializeDateFormatting('es', null);
 
   // 🔥 IMPORTANTE: Detectar la IP del backend automáticamente
   await ApiService.resolverIp();
+
+  // ─── SI YA HAY SESIÓN ACTIVA, REGISTRAR EL TOKEN FCM ───
+  if (await AuthService().haySesionActiva()) {
+    await NotificationService().inicializar();
+  }
 
   runApp(const MyApp());
 }

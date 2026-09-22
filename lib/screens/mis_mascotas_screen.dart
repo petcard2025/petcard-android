@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import '../services/api_service.dart';
+import '../services/app_events.dart';
 import 'carnet_digital.dart';
 
 class MisMascotasScreen extends StatefulWidget {
@@ -341,6 +342,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       });
 
       await _cargarMascotas();
+      AppEvents.instance.notificarMascotasCambiaron();
       if (!mounted) return;
       _mostrarAlerta('Éxito', '✅ Mascota registrada correctamente');
     } catch (e) {
@@ -426,6 +428,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
       });
 
       await _cargarMascotas();
+      AppEvents.instance.notificarMascotasCambiaron();
       if (!mounted) return;
       _mostrarAlerta('Éxito', '✅ Mascota actualizada correctamente');
     } catch (e) {
@@ -462,6 +465,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
         await _api.eliminarMascota(id);
         await _eliminarFotoLocal(id);
         await _cargarMascotas();
+        AppEvents.instance.notificarMascotasCambiaron();
         if (!mounted) return;
         _mostrarAlerta('Éxito', '✅ Mascota eliminada correctamente');
       } catch (e) {
