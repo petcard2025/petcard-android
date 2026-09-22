@@ -97,8 +97,27 @@ class _CitasScreenState extends State<CitasScreen> {
   String? _veterinarioSeleccionado;
   final TextEditingController _notasController = TextEditingController();
   DateTime? _fechaSeleccionada;
-  TimeOfDay? _horaSeleccionada;
+  String? _horaSeleccionada;
   String _estadoSeleccionado = 'Pendiente';
+
+  // ============================================================
+  // HORARIOS DISPONIBLES (igual que en la web: franjas fijas de
+  // 8:00 a.m. a 4:00 p.m., sin reloj libre)
+  // ============================================================
+  static const List<String> _todasLasHoras = [
+    '08:00 AM',
+    '09:00 AM',
+    '10:00 AM',
+    '11:00 AM',
+    '02:00 PM',
+    '03:00 PM',
+    '04:00 PM',
+  ];
+  List<Map<String, dynamic>> _horasDisponibles = _todasLasHoras
+      .map((h) => {'hora': h, 'disponible': true})
+      .toList();
+  bool _cargandoHoras = false;
+  bool _resaltarHoras = false;
 
   // Controladores para edición
   Map<String, dynamic>? _citaEditando;
@@ -351,6 +370,16 @@ class _CitasScreenState extends State<CitasScreen> {
         _veterinarioSeleccionado == null ||
         _fechaSeleccionada == null ||
         _horaSeleccionada == null) {
+      if (_horaSeleccionada == null &&
+          _servicioSeleccionado != null &&
+          _mascotaSeleccionada != null &&
+          _veterinarioSeleccionado != null &&
+          _fechaSeleccionada != null) {
+        setState(() => _resaltarHoras = true);
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _resaltarHoras = false);
+        });
+      }
       _mostrarAlerta(
         'Error',
         '⚠️ Servicio, mascota, veterinario, fecha y hora son obligatorios',
@@ -590,14 +619,10 @@ class _CitasScreenState extends State<CitasScreen> {
       }
       final horaStr = cita['Hora']?.toString();
       if (horaStr != null && horaStr.contains(':')) {
-        final partes = horaStr.split(':');
-        final h = int.tryParse(partes[0]);
-        final m = int.tryParse(partes[1]);
-        if (h != null && m != null) {
-          _horaSeleccionada = TimeOfDay(hour: h, minute: m);
-        }
+        _horaSeleccionada = _horaLabelDesde24(_horaA24(horaStr));
       }
     });
+    _cargarHorasDisponibles();
   }
 
   void _limpiarFormulario() {
@@ -610,6 +635,9 @@ class _CitasScreenState extends State<CitasScreen> {
     _estadoSeleccionado = 'Pendiente';
     _citaEditando = null;
     _editando = false;
+    _horasDisponibles =
+        _todasLasHoras.map((h) => {'hora': h, 'disponible': true}).toList();
+    _resaltarHoras = false;
   }
 
   // Convierte una fecha/hora a los formatos que espera el backend
@@ -619,9 +647,41 @@ class _CitasScreenState extends State<CitasScreen> {
         '${fecha.day.toString().padLeft(2, '0')}';
   }
 
-  String _formatearHoraIso(TimeOfDay hora) {
-    return '${hora.hour.toString().padLeft(2, '0')}:'
-        '${hora.minute.toString().padLeft(2, '0')}:00';
+  // Convierte una franja de la lista fija ("08:00 AM" / "02:00 PM") o una
+  // hora ya en formato "HH:mm" / "HH:mm:ss" a "HH:mm" en 24 horas, igual
+  // que la web, para poder comparar sin importar cómo venga guardada.
+  String _horaA24(String horaStr) {
+    final str = horaStr.trim();
+    final ampmMatch = RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM)$', caseSensitive: false)
+        .firstMatch(str);
+    if (ampmMatch != null) {
+      var h = int.parse(ampmMatch.group(1)!);
+      final m = ampmMatch.group(2)!;
+      final ap = ampmMatch.group(3)!.toUpperCase();
+      if (ap == 'PM' && h != 12) h += 12;
+      if (ap == 'AM' && h == 12) h = 0;
+      return '${h.toString().padLeft(2, '0')}:$m';
+    }
+    final partes = str.split(':');
+    if (partes.length < 2) return str;
+    return '${partes[0].padLeft(2, '0')}:${partes[1]}';
+  }
+
+  // Convierte "HH:mm" (24h) a la etiqueta "hh:mm AM/PM" usada en la
+  // grilla de horarios (para preseleccionar la hora al editar una cita).
+  String _horaLabelDesde24(String hora24) {
+    final partes = hora24.split(':');
+    if (partes.length < 2) return hora24;
+    var h = int.tryParse(partes[0]) ?? 0;
+    final m = partes[1];
+    final ap = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12;
+    if (h12 == 0) h12 = 12;
+    return '${h12.toString().padLeft(2, '0')}:$m $ap';
+  }
+
+  String _formatearHoraIso(String horaLabel) {
+    return '${_horaA24(horaLabel)}:00';
   }
 
   // ============================================================
@@ -645,34 +705,58 @@ class _CitasScreenState extends State<CitasScreen> {
     if (!mounted) return;
     if (fecha != null) {
       setState(() => _fechaSeleccionada = fecha);
+      await _cargarHorasDisponibles();
     }
   }
 
-  Future<void> _seleccionarHora() async {
-    final hora = await showTimePicker(
-      context: context,
-      initialTime: _horaSeleccionada ?? TimeOfDay.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: kAzul),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (!mounted) return;
-    if (hora != null) {
-      if (hora.hour < 8 || hora.hour > 16) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('El horario de atención es de 8:00 a.m. a 4:00 p.m.'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+  // Igual que en la web: consulta las horas ya ocupadas de ese
+  // veterinario en esa fecha y deja solo esas franjas deshabilitadas
+  // dentro de la lista fija de 8:00 a.m. a 4:00 p.m.
+  Future<void> _cargarHorasDisponibles() async {
+    if (_veterinarioSeleccionado == null || _fechaSeleccionada == null) {
+      setState(() {
+        _horasDisponibles =
+            _todasLasHoras.map((h) => {'hora': h, 'disponible': true}).toList();
+      });
+      return;
+    }
+
+    setState(() => _cargandoHoras = true);
+    try {
+      final veterinario = _veterinarios.firstWhere(
+            (v) => v['Nombre'] == _veterinarioSeleccionado,
+        orElse: () => {},
+      );
+      if (veterinario.isEmpty) {
+        _horasDisponibles =
+            _todasLasHoras.map((h) => {'hora': h, 'disponible': true}).toList();
         return;
       }
-      setState(() => _horaSeleccionada = hora);
+
+      final fechaIso = _formatearFechaIso(_fechaSeleccionada!);
+      final ocupadas = await _api.obtenerHorasOcupadas(
+        idVeterinario: veterinario['ID_veterinario'],
+        fecha: fechaIso,
+      );
+      final ocupadas24 = ocupadas.map(_horaA24).toSet();
+
+      _horasDisponibles = _todasLasHoras
+          .map((h) => {
+        'hora': h,
+        'disponible': !ocupadas24.contains(_horaA24(h)),
+      })
+          .toList();
+
+      if (_horaSeleccionada != null &&
+          ocupadas24.contains(_horaA24(_horaSeleccionada!))) {
+        _horaSeleccionada = null;
+      }
+    } catch (e) {
+      debugPrint('Error cargando horas disponibles: $e');
+      _horasDisponibles =
+          _todasLasHoras.map((h) => {'hora': h, 'disponible': true}).toList();
+    } finally {
+      if (mounted) setState(() => _cargandoHoras = false);
     }
   }
 
@@ -1165,36 +1249,27 @@ class _CitasScreenState extends State<CitasScreen> {
             hint: 'Selecciona un veterinario',
             valor: _veterinarioSeleccionado,
             opciones: _veterinarios.map((v) => v['Nombre'].toString()).toList(),
-            onChanged: (v) => setState(() => _veterinarioSeleccionado = v),
+            onChanged: (v) {
+              setState(() => _veterinarioSeleccionado = v);
+              _cargarHorasDisponibles();
+            },
           ),
           const SizedBox(height: 12),
 
-          // Fecha y hora en Row
-          Row(
-            children: [
-              Expanded(
-                child: _buildSelectorFecha(
-                  label: 'Fecha',
-                  valor: _fechaSeleccionada == null
-                      ? 'Seleccionar'
-                      : _formatearFecha(_fechaSeleccionada!),
-                  onTap: _seleccionarFecha,
-                  icono: Icons.calendar_today,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildSelectorFecha(
-                  label: 'Hora',
-                  valor: _horaSeleccionada == null
-                      ? 'Seleccionar'
-                      : _horaSeleccionada!.format(context),
-                  onTap: _seleccionarHora,
-                  icono: Icons.access_time,
-                ),
-              ),
-            ],
+          // Fecha
+          _buildSelectorFecha(
+            label: 'Fecha',
+            valor: _fechaSeleccionada == null
+                ? 'Seleccionar'
+                : _formatearFecha(_fechaSeleccionada!),
+            onTap: _seleccionarFecha,
+            icono: Icons.calendar_today,
           ),
+          const SizedBox(height: 12),
+
+          // Hora: igual que en la web, franjas fijas de 8:00 a.m. a
+          // 4:00 p.m. en vez del reloj libre.
+          _buildSelectorHora(),
           const SizedBox(height: 12),
 
           // Notas
@@ -1376,6 +1451,117 @@ class _CitasScreenState extends State<CitasScreen> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildSelectorHora() {
+    final hayDisponibles = _horasDisponibles.any((h) => h['disponible'] == true);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Hora',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700],
+              ),
+            ),
+            const Text(' *', style: TextStyle(color: Colors.redAccent, fontSize: 13)),
+            if (_cargandoHoras) ...[
+              const SizedBox(width: 8),
+              const Text(
+                'Cargando disponibilidad...',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 4),
+        if (_veterinarioSeleccionado == null || _fechaSeleccionada == null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Text(
+              'Selecciona veterinario y fecha para ver los horarios disponibles',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _resaltarHoras ? Colors.redAccent : Colors.grey[300]!,
+                width: _resaltarHoras ? 1.5 : 1,
+              ),
+            ),
+            child: !hayDisponibles
+                ? const Text(
+              'No hay horarios disponibles para este día con este veterinario.',
+              style: TextStyle(fontSize: 12, color: Colors.redAccent),
+            )
+                : Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _horasDisponibles.map((item) {
+                final hora = item['hora'] as String;
+                final disponible = item['disponible'] as bool;
+                final seleccionada = _horaSeleccionada == hora;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: disponible
+                      ? () => setState(() => _horaSeleccionada = hora)
+                      : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: !disponible
+                          ? Colors.grey[200]
+                          : seleccionada
+                          ? kAzul
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: !disponible
+                            ? Colors.grey[300]!
+                            : seleccionada
+                            ? kAzul
+                            : Colors.grey[300]!,
+                      ),
+                    ),
+                    child: Text(
+                      hora,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: !disponible
+                            ? Colors.grey[400]
+                            : seleccionada
+                            ? Colors.white
+                            : Colors.grey[800],
+                        decoration: !disponible
+                            ? TextDecoration.lineThrough
+                            : TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
       ],
     );
   }
