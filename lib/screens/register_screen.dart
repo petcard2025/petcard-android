@@ -12,6 +12,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _authService = AuthService();
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _apellidoController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -23,9 +24,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static const Color kBlue = Color(0xFF2563EB);
   static const Color kBlueDark = Color(0xFF2563EB);
 
-  // Solo letras (incluye tildes y ñ) y espacios; al menos nombre y "algo más"
+  // Solo letras (incluye tildes y ñ) y espacios
   static final RegExp _nameRegex =
-  RegExp(r"^[a-zA-ZÀ-ÖØ-öø-ÿ]+(?:\s[a-zA-ZÀ-ÖØ-öø-ÿ]+)+$");
+  RegExp(r"^[a-zA-ZÀ-ÖØ-öø-ÿ]+(?:\s[a-zA-ZÀ-ÖØ-öø-ÿ]+)*$");
   // Correo con formato algo@dominio.extensión
   static final RegExp _emailRegex =
   RegExp(r'^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$');
@@ -39,6 +40,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _apellidoController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
@@ -49,9 +51,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _validateName(String? value) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return 'Ingresa tu nombre';
-    if (v.length < 3) return 'El nombre es muy corto';
+    if (v.length < 2) return 'El nombre es muy corto';
     if (!_nameRegex.hasMatch(v)) {
-      return 'Ingresa tu nombre y apellido, solo letras';
+      return 'Solo letras';
+    }
+    return null;
+  }
+
+  String? _validateApellido(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Ingresa tu apellido';
+    if (v.length < 2) return 'El apellido es muy corto';
+    if (!_nameRegex.hasMatch(v)) {
+      return 'Solo letras';
     }
     return null;
   }
@@ -100,7 +112,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       await _authService.signUp(
-        name: _nameController.text.trim(),
+        name: '${_nameController.text.trim()} ${_apellidoController.text.trim()}'.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
         telefono: _phoneController.text.trim().isEmpty
@@ -201,7 +213,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'NOMBRE COMPLETO',
+                      'NOMBRE',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -215,7 +227,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       keyboardType: TextInputType.name,
                       textCapitalization: TextCapitalization.words,
                       decoration: InputDecoration(
-                        hintText: 'Tu nombre y apellido',
+                        hintText: 'Tu nombre',
                         prefixIcon: const Icon(Icons.person_outline, color: kBlue),
                         filled: true,
                         fillColor: const Color(0xFFF3F4F6),
@@ -226,6 +238,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       validator: _validateName,
+                    ),
+                    const SizedBox(height: 20),
+
+                    const Text(
+                      'APELLIDO',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black54,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _apellidoController,
+                      keyboardType: TextInputType.name,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        hintText: 'Tu apellido',
+                        prefixIcon: const Icon(Icons.person_outline, color: kBlue),
+                        filled: true,
+                        fillColor: const Color(0xFFF3F4F6),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      validator: _validateApellido,
                     ),
                     const SizedBox(height: 20),
 

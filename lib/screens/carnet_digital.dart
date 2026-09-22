@@ -47,6 +47,42 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   List<Map<String, dynamic>> _vacunas = [];
 
   // ------------------------------------------------------------
+  // Igual que en la web: estado de vacunación calculado
+  // ------------------------------------------------------------
+  bool _esAplicada(dynamic estado) =>
+      estado == 'Aplicada' || estado == 'Completada' || estado == 'Completo' || estado == 'aplicada';
+  bool _esAtrasada(dynamic estado) =>
+      estado == 'Atrasada' || estado == 'atrasada';
+
+  int get _aplicadas => _vacunas.where((v) => _esAplicada(v['Estado'])).length;
+  int get _pendientes => _vacunas.length - _aplicadas;
+  int get _pct => _vacunas.isEmpty
+      ? 0
+      : ((_aplicadas / _vacunas.length) * 100).round();
+  List<Map<String, dynamic>> get _proximas => _vacunas
+      .where((v) => !_esAplicada(v['Estado']))
+      .take(2)
+      .toList();
+
+  Color _estadoColor(dynamic estado) {
+    if (_esAplicada(estado)) return kSuccess;
+    if (_esAtrasada(estado)) return const Color(0xFFDC2626);
+    return const Color(0xFFCA8A04);
+  }
+
+  String _estadoIcono(dynamic estado) {
+    if (_esAplicada(estado)) return '✓';
+    if (_esAtrasada(estado)) return '✖';
+    return '⚠';
+  }
+
+  String _badgeLabel(dynamic estado) {
+    if (_esAtrasada(estado)) return 'Atrasada';
+    if (estado == 'Proxima' || estado == 'proxima') return 'Próxima Dosis';
+    return 'Pendiente';
+  }
+
+  // ------------------------------------------------------------
   // Formulario "Agregar Vacuna" (igual al de la web)
   // ------------------------------------------------------------
   final _nombreVacunaCtrl = TextEditingController();
@@ -1018,7 +1054,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1038,92 +1074,87 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            const Text('Carnet Digital',
-                style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A))),
-            const Text('Identificación oficial de tu mascota',
-                style: TextStyle(
-                    fontSize: 14, color: Color(0xFF64748B))),
-            const SizedBox(height: 20),
-            _buildCarnetCard(),
-            const SizedBox(height: 24),
 
+            // ── Encabezado verde "Carnet de Vacunación" (igual que la web) ──
+            _buildCarnetHeader(),
+            const SizedBox(height: 16),
+
+            // ── Botón agregar vacuna ──
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _mostrarFormularioVacuna,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const Icon(Icons.add, size: 18, color: Color(0xFF16A34A)),
+                label: const Text(
+                  'Agregar Vacuna',
+                  style: TextStyle(
+                      color: Color(0xFF16A34A), fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // ── Tabla de vacunas (Estado, Vacuna, F.Programada, F.Aplicada, Lote, Obs.) ──
+            _buildTablaVacunas(),
+            const SizedBox(height: 16),
+
+            // ── Observaciones médicas ──
+            _buildObservacionesMedicas(),
+            const SizedBox(height: 20),
+
+            // ── Estado de vacunación (%, barra, stats) ──
+            _buildEstadoVacunacion(),
+            const SizedBox(height: 16),
+
+            // ── Próximas vacunas ──
+            _buildProximasVacunas(),
+            const SizedBox(height: 16),
+
+            // ── Información del carnet ──
+            _buildInformacionCarnet(),
+            const SizedBox(height: 12),
+
+            // ── Botones Descargar PDF / Imprimir ──
             Row(
               children: [
-                const Expanded(
-                  child: Text(
-                    'Vacunas Registradas',
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A)),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _descargarPDF,
+                    icon: const Icon(Icons.download, color: Colors.white, size: 18),
+                    label: const Text('Descargar PDF',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kBlue,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      elevation: 2,
+                    ),
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: _mostrarFormularioVacuna,
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  icon: const Icon(Icons.add, size: 18, color: Color(0xFF16A34A)),
-                  label: const Text(
-                    'Agregar Vacuna',
-                    style: TextStyle(
-                        color: Color(0xFF16A34A), fontWeight: FontWeight.bold),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _descargarPDF,
+                    icon: const Icon(Icons.print, size: 18, color: kBlue),
+                    label: const Text('Imprimir',
+                        style: TextStyle(color: kBlue, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: kBlue),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            if (_vacunas.isNotEmpty) ...[
-              ..._vacunas.map((v) => _buildVacunaCard(v)),
-              const SizedBox(height: 12),
-            ] else ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey[200]!),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.vaccines_outlined, color: Colors.grey[400], size: 32),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Esta mascota no tiene vacunas registradas aún.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _descargarPDF,
-                icon: const Icon(Icons.download, color: Colors.white),
-                label: const Text('Descargar PDF',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kBlue,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(40)),
-                  elevation: 4,
-                ),
-              ),
             ),
             const SizedBox(height: 20),
           ],
@@ -1132,283 +1163,354 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     );
   }
 
-  Widget _buildAvatarMascota() {
-    if (_fotoPath != null && _fotoPath!.isNotEmpty) {
-      return ClipOval(
-        child: Image.file(
-          File(_fotoPath!),
-          width: 64,
-          height: 64,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.pets, color: kYellow, size: 36),
-          ),
-        ),
-      );
-    }
+  // ============================================================
+  // Encabezado verde "Carnet de Vacunación" (equivalente a
+  // .vacuna-header de la web)
+  // ============================================================
+  Widget _buildCarnetHeader() {
     return Container(
-      width: 64,
-      height: 64,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        shape: BoxShape.circle,
-      ),
-      child: const Icon(Icons.pets, color: kYellow, size: 36),
-    );
-  }
-
-  Widget _buildCarnetCard() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E3A5F), Color(0xFF2D4A7A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E3A5F).withValues(alpha: 0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: const [
-                  Icon(Icons.pets, color: kYellow, size: 24),
-                  SizedBox(width: 8),
-                  Text('PetCard',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18)),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: kSuccess,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text('VÁLIDO',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              _buildAvatarMascota(),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(widget.nombreMascota,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold)),
-                    Text('${widget.especie} · ${widget.raza}',
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
-                            fontSize: 14)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                _buildDetailRow('EDAD', _calcularEdad(), 'PESO',
-                    '${widget.peso} kg'),
-                const SizedBox(height: 12),
-                _buildDetailRow('RAZA', widget.raza, 'SEXO', widget.sexo),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: const [
-                    Icon(Icons.person, color: Colors.white60, size: 14),
-                    SizedBox(width: 4),
-                    Text('PROPIETARIO',
-                        style: TextStyle(
-                            color: Colors.white60,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _nombrePropietario.isEmpty ? '-' : _nombrePropietario,
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.phone, color: Colors.white60, size: 10),
-                    const SizedBox(width: 4),
-                    Text(
-                      _telefonoPropietario.isEmpty
-                          ? '-'
-                          : _telefonoPropietario,
-                      style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 12),
-                    ),
-                    const SizedBox(width: 12),
-                    const Icon(Icons.email, color: Colors.white60, size: 10),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        _emailPropietario.isEmpty ? '-' : _emailPropietario,
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 12),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(
-      String label1, String value1, String label2, String value2) {
-    return Row(
-      children: [
-        Expanded(child: _buildDetailItem(label1, value1)),
-        Expanded(child: _buildDetailItem(label2, value2)),
-      ],
-    );
-  }
-
-  Widget _buildDetailItem(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 8,
-                fontWeight: FontWeight.bold)),
-        Text(value,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-
-  Widget _buildVacunaCard(Map<String, dynamic> v) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: kSuccess,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: kBlue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.medical_services, color: kBlue, size: 20),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  v['Nombre_vacuna'] ?? 'Vacuna',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                Text(
-                  'Aplicada: ${_formatearFecha(v['Fecha_aplicacion'])}'
-                      '${v['Proxima_dosis'] != null ? ' · Próxima: ${_formatearFecha(v['Proxima_dosis'])}' : ''}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                if (v['Lote'] != null && v['Lote'].toString().isNotEmpty)
-                  Text(
-                    'Lote: ${v['Lote']}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                  ),
+                const Text('Carnet de Vacunación',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('${widget.nombreMascota} · ${widget.especie}',
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 13)),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: (v['Estado'] == 'Aplicada' || v['Estado'] == 'Completada')
-                  ? const Color(0xFFDCFCE7)
-                  : const Color(0xFFFEF9C3),
-              borderRadius: BorderRadius.circular(20),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('Veterinario:',
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85), fontSize: 11)),
+              const Text('Dr. José García',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12)),
+              const SizedBox(height: 2),
+              Text('Matrícula: 47789',
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85), fontSize: 11)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // Tabla de vacunas, con scroll horizontal (igual columnas que
+  // la tabla de la web)
+  // ============================================================
+  Widget _buildTablaVacunas() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: _vacunas.isEmpty
+          ? Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Text('Sin vacunas registradas todavía.',
+            style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+      )
+          : SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(const Color(0xFF1D4ED8)),
+          headingTextStyle: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+          dataTextStyle: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+          columnSpacing: 18,
+          columns: const [
+            DataColumn(label: Text('Estado')),
+            DataColumn(label: Text('Vacuna')),
+            DataColumn(label: Text('F. Programada')),
+            DataColumn(label: Text('F. Aplicada')),
+            DataColumn(label: Text('Lote')),
+            DataColumn(label: Text('Observaciones')),
+          ],
+          rows: _vacunas.map((v) {
+            return DataRow(cells: [
+              DataCell(Text(_estadoIcono(v['Estado']),
+                  style: TextStyle(
+                      color: _estadoColor(v['Estado']),
+                      fontWeight: FontWeight.bold))),
+              DataCell(Text(v['Nombre_vacuna'] ?? '—',
+                  style: const TextStyle(
+                      color: kBlue, fontWeight: FontWeight.bold))),
+              DataCell(Text(_formatearFecha(v['Proxima_dosis']))),
+              DataCell(Text(_formatearFecha(v['Fecha_aplicacion']))),
+              DataCell(Text((v['Lote'] ?? '—').toString())),
+              DataCell(SizedBox(
+                width: 140,
+                child: Text((v['Observaciones'] ?? '—').toString(),
+                    overflow: TextOverflow.ellipsis, maxLines: 2),
+              )),
+            ]);
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildObservacionesMedicas() {
+    final conObs = _vacunas.where((v) =>
+    v['Observaciones'] != null && v['Observaciones'].toString().isNotEmpty);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Observaciones Médicas:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 6),
+          if (conObs.isEmpty)
+            Text('Sin observaciones registradas.',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]))
+          else
+            ...conObs.map((v) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text('• ${v['Nombre_vacuna']}: ${v['Observaciones']}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+            )),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // Card "Estado de Vacunación" (% + barra + stats), igual a la
+  // web
+  // ============================================================
+  Widget _buildEstadoVacunacion() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Estado de Vacunación',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 12),
+          Center(
+            child: Column(
+              children: [
+                Text('$_pct%',
+                    style: const TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A))),
+                Text('Carnet de Vacunación',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ],
             ),
-            child: Text(
-              v['Estado'] ?? 'Pendiente',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: (v['Estado'] == 'Aplicada' ||
-                    v['Estado'] == 'Completada')
-                    ? const Color(0xFF16A34A)
-                    : const Color(0xFFCA8A04),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: _pct / 100,
+              minHeight: 8,
+              backgroundColor: const Color(0xFFE5E7EB),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFFCA8A04)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _filaStat('Aplicadas:', '$_aplicadas'),
+          _filaStat('Pendientes o demorar:', '$_pendientes'),
+          _filaStat('Próximas:', '${_proximas.length}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _filaStat(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // Card "Próximas Vacunas"
+  // ============================================================
+  Widget _buildProximasVacunas() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.schedule, size: 16, color: Color(0xFFEA580C)),
+              SizedBox(width: 6),
+              Text('Próximas Vacunas',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFFEA580C))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_proximas.isEmpty)
+            Text('Sin vacunas pendientes.',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]))
+          else
+            ..._proximas.map((v) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(v['Nombre_vacuna'] ?? '—',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _esAtrasada(v['Estado'])
+                              ? const Color(0xFFFEE2E2)
+                              : const Color(0xFFFEF9C3),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(_badgeLabel(v['Estado']),
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: _esAtrasada(v['Estado'])
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFFCA8A04))),
+                      ),
+                    ],
+                  ),
+                  Text('Próxima: ${_formatearFecha(v['Proxima_dosis'])}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                ],
               ),
+            )),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, '/citas'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kSuccess,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Agendar Vacunación',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // Card "Información del Carnet"
+  // ============================================================
+  Widget _buildInformacionCarnet() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.description, size: 16, color: Color(0xFF16A34A)),
+              SizedBox(width: 6),
+              Text('Información del Carnet',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF16A34A))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _filaInfo('Mascota:', widget.nombreMascota),
+          _filaInfo('Especie:', widget.especie),
+          _filaInfo('Raza:', widget.raza),
+          _filaInfo('ID:', '${widget.idMascota}'),
+          _filaInfo('Fecha de nacimiento:',
+              widget.fechaNacimiento != null && widget.fechaNacimiento!.isNotEmpty
+                  ? _formatearFecha(widget.fechaNacimiento)
+                  : '—'),
+          _filaInfo(
+              'Próxima cita:',
+              _proximas.isNotEmpty
+                  ? _formatearFecha(_proximas.first['Proxima_dosis'])
+                  : '—'),
+        ],
+      ),
+    );
+  }
+
+  Widget _filaInfo(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+          Flexible(
+            child: Text(value,
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

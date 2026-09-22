@@ -192,7 +192,7 @@ class ApiService {
     required String contrasena,
   }) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/login'),
+      Uri.parse('$baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'Correo': correo,

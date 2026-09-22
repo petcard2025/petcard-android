@@ -539,20 +539,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
 
                     // Divider "o continúa con"
-                    Row(
-                      children: [
-                        const Expanded(child: Divider(color: Color(0xFFE5E7EB))),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'o continúa con',
-                            style: TextStyle(color: Colors.black45, fontSize: 13),
-                          ),
-                        ),
-                        const Expanded(child: Divider(color: Color(0xFFE5E7EB))),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
 
 
                     // Link a registro
