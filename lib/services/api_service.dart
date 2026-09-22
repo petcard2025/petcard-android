@@ -29,7 +29,7 @@ class ApiService {
         }
       } catch (_) {}
     }
-    print('⚠️ Ninguna IP respondió, usando: $_ipActual');
+    print('Ninguna IP respondió, usando: $_ipActual');
   }
 
   final _storage = const FlutterSecureStorage();
