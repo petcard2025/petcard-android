@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:petcard/theme/app_theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:petcard/screens/prueba_screen.dart';
 import 'package:petcard/screens/perfil_screen.dart';
 import 'package:petcard/screens/mis_mascotas_screen.dart';
 import 'package:petcard/screens/login_screen.dart';
@@ -13,8 +12,6 @@ import 'package:petcard/screens/inicio_screen.dart';
 import 'package:petcard/screens/alimentacion_screen.dart';
 import 'package:petcard/screens/landing_screen.dart';
 import 'package:petcard/screens/gestion_servicios.dart';
-// ELIMINAR ESTA IMPORTACIÓN - Ya no se usa como ruta independiente
-// import 'package:petcard/screens/carnet_digital.dart';
 import 'package:petcard/screens/notificaciones_screen.dart';
 import 'package:petcard/services/api_service.dart';
 import 'package:petcard/services/auth_service.dart';
@@ -86,7 +83,6 @@ class MyApp extends StatelessWidget {
         '/alimentacion': (context) => const AlimentacionScreen(),
         '/gestion-servicios': (context) => const GestionServiciosScreen(),
         '/notificaciones': (context) => const NotificacionesScreen(),
-        '/prueba': (context) => const PruebaScreen(),
 
         // ============================================================
         // RUTAS DE ADMIN

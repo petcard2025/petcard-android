@@ -71,42 +71,54 @@ class AdminHomeScreen extends StatelessWidget {
       ),
     ];
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: kAzul,
-        elevation: 0,
-        title: const Text(
-          'Panel de Administrador',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    // PopScope con canPop:false bloquea el botón físico de atrás
+    // cuando ya estamos en el panel de admin. Las pantallas hijas
+    // (Citas, Mascotas, etc.) siguen funcionando normal porque se
+    // abren con Navigator.push y su propio pop sí está permitido.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // No hacemos nada. La única forma de salir es el botón
+        // de cerrar sesión del AppBar.
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          backgroundColor: kAzul,
+          elevation: 0,
+          title: const Text(
+            'Panel de Administrador',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          iconTheme: const IconThemeData(color: Colors.white),
+          leading: IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+          ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
-        leading: IconButton(
-          icon: const Icon(Icons.logout, color: Colors.white),
-          onPressed: () {
-            Navigator.pushReplacementNamed(context, '/login');
-          },
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Gestión del sistema',
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 12),
-            ...opciones.map((o) => _buildTarjeta(context, o)),
-            const SizedBox(height: 20),
-            Center(
-              child: Text(
-                '© 2026 PetCard Admin',
-                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Gestión del sistema',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              ...opciones.map((o) => _buildTarjeta(context, o)),
+              const SizedBox(height: 20),
+              Center(
+                child: Text(
+                  '© 2026 PetCard Admin',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -120,7 +132,7 @@ class AdminHomeScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -142,7 +154,7 @@ class AdminHomeScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: o.color.withOpacity(0.1),
+                    color: o.color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(o.icono, color: o.color, size: 24),
