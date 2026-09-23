@@ -22,14 +22,12 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
   String? _error;
   List<Map<String, dynamic>> _planes = [];
   List<Map<String, dynamic>> _mascotas = [];
-  List<Map<String, dynamic>> _servicios = [];
 
   String _busqueda = '';
   String _filtroEstado = 'Todos';
   final List<String> _estados = ['Todos', 'Activo', 'Pendiente'];
 
   dynamic _mascotaSeleccionadaId;
-  dynamic _servicioSeleccionadoId;
   String _estadoSeleccionado = 'Pendiente';
   final TextEditingController _tipoDietaCtrl = TextEditingController();
   final TextEditingController _caloriasCtrl = TextEditingController();
@@ -71,11 +69,9 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
       final resultados = await Future.wait([
         _api.obtenerPlanesAlimentacion(),
         _api.obtenerMascotasAdmin(),
-        _api.obtenerServicios(),
       ]);
       _planes = resultados[0];
       _mascotas = resultados[1];
-      _servicios = resultados[2];
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
     }
@@ -97,7 +93,6 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
 
   void _limpiarFormulario() {
     _mascotaSeleccionadaId = null;
-    _servicioSeleccionadoId = null;
     _estadoSeleccionado = 'Pendiente';
     _tipoDietaCtrl.clear();
     _caloriasCtrl.clear();
@@ -118,7 +113,6 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
 
   void _abrirEditar(Map<String, dynamic> plan) {
     _mascotaSeleccionadaId = plan['ID_mascota'];
-    _servicioSeleccionadoId = plan['ID_servicio'];
     _estadoSeleccionado = (plan['Revision_nutricional'] ?? 'Pendiente').toString();
     _tipoDietaCtrl.text = (plan['Tipo_dieta'] ?? '').toString();
     _caloriasCtrl.text = (plan['Calorias'] ?? '').toString();
@@ -145,13 +139,12 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
   }
 
   Future<void> _guardarPlan() async {
-    if (_mascotaSeleccionadaId == null || _servicioSeleccionadoId == null) {
-      _mostrarAlerta('Atención', 'Selecciona la mascota y el servicio.');
+    if (_mascotaSeleccionadaId == null) {
+      _mostrarAlerta('Atención', 'Selecciona la mascota.');
       return;
     }
     final datos = {
       'ID_mascota': _mascotaSeleccionadaId,
-      'ID_servicio': _servicioSeleccionadoId,
       'Tipo_dieta': _tipoDietaCtrl.text.trim(),
       'Calorias': _caloriasCtrl.text.trim(),
       'Frecuencia': _frecuenciaCtrl.text.trim(),
@@ -419,7 +412,7 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      (plan['Nombre_servicio'] ?? '').toString(),
+                      (plan['Tipo_dieta'] ?? '').toString(),
                       style: TextStyle(color: Colors.grey[600], fontSize: 12.5),
                     ),
                   ],
@@ -557,19 +550,6 @@ class _AdminAlimentacionScreenState extends State<AdminAlimentacionScreen> {
                 )
                     .toList(),
                 onChanged: (v) => setSheetState(() => _mascotaSeleccionadaId = v),
-              ),
-              _dropdown<dynamic>(
-                label: 'Servicio',
-                value: _servicioSeleccionadoId,
-                items: _servicios
-                    .map(
-                      (s) => DropdownMenuItem(
-                    value: s['ID_servicio'],
-                    child: Text((s['Nombre'] ?? 'Sin nombre').toString()),
-                  ),
-                )
-                    .toList(),
-                onChanged: (v) => setSheetState(() => _servicioSeleccionadoId = v),
               ),
               _campoTexto('Tipo de dieta', _tipoDietaCtrl, hint: 'Ej. Balanceada completa'),
               Row(

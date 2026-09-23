@@ -161,8 +161,37 @@ class _LoginScreenState extends State<LoginScreen> {
             .toString()
             .toLowerCase();
         final nombre = usuario?['Nombre'] ?? 'Veterinario';
-        final id = (usuario?['ID_veterinario'] ?? usuario?['ID_usuario'])
-            ?.toString();
+
+        // ── Resolver el ID_veterinario real ──────────────────────
+        // /api/auth/login NUNCA devuelve ID_veterinario (solo trae
+        // ID_usuario, Nombre, Correo, Telefono, Rol), así que si el
+        // usuario es veterinario hay que buscarlo aparte en
+        // /api/veterinarios, emparejando por Correo (ese endpoint
+        // tampoco devuelve ID_usuario, así que el correo es la
+        // única llave común disponible en ambas respuestas).
+        String? id;
+        if (rol == 'veterinario') {
+          try {
+            final veterinarios = await ApiService().obtenerVeterinarios();
+            final correoUsuario =
+            (usuario?['Correo'] ?? '').toString().trim().toLowerCase();
+            final match = veterinarios.firstWhere(
+                  (v) => (v['Correo'] ?? '')
+                  .toString()
+                  .trim()
+                  .toLowerCase() ==
+                  correoUsuario,
+              orElse: () => {},
+            );
+            id = match['ID_veterinario']?.toString();
+          } catch (_) {
+            // Si falla la consulta, seguimos sin id (ver fallback abajo).
+          }
+        }
+        // Fallback: nunca dejar null duro, aunque si se llega aquí
+        // significa que el emparejamiento por correo falló y las
+        // citas del panel del veterinario no van a filtrar bien.
+        id ??= usuario?['ID_usuario']?.toString();
 
         if (rol == 'admin' || rol == 'administrador') {
           // pushNamedAndRemoveUntil borra TODA la pila anterior (landing + login),

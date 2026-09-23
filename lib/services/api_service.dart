@@ -17,11 +17,7 @@ class ApiService {
     '10.0.2.2',           // carlos
     '192.168.80.13',      // laura
     '172.31.160.1',      // laura
-    '192.168.80.14',
-    '172.20.10.3',
-    '10.42.165.181',
-    '181.59.2.17',
-    '192.168.137.246',
+    '192.168.0.11',
   ];
 
   // IP que realmente se usará. Empieza con la primera de la lista y se
