@@ -27,7 +27,11 @@ class _MainNavScreenState extends State<MainNavScreen> {
 
   late final List<Widget> _vistas = [
     InicioScreen(onIrATab: _cambiarTab),
-    const GestionServiciosScreen(),
+    GestionServiciosScreen(
+      onAgendarServicio: (nombreServicio) {
+        _cambiarTab(3);
+      },
+    ),
     const MisMascotasScreen(),
     const CitasScreen(),
     const AlimentacionScreen(),

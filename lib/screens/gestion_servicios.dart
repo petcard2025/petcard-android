@@ -258,11 +258,6 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
   }
 
   IconData _iconoEspecie(String especie) {
-    final e = especie.toLowerCase();
-    if (e.contains('perro')) return Icons.pets;
-    if (e.contains('gato')) return Icons.pets;
-    if (e.contains('ave') || e.contains('pajaro')) return Icons.flight;
-    if (e.contains('conejo')) return Icons.cruelty_free;
     return Icons.pets;
   }
 
