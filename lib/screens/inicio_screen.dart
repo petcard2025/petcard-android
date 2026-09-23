@@ -136,8 +136,12 @@ class _InicioScreenState extends State<InicioScreen> {
       : Navigator.pushNamed(context, '/citas');
 
   void _irAGestionServicios() => widget.onIrATab != null
-      ? widget.onIrATab!(4)
+      ? widget.onIrATab!(1)
       : Navigator.pushNamed(context, '/gestion-servicios');
+
+  void _irAAlimentacion() => widget.onIrATab != null
+      ? widget.onIrATab!(4)
+      : Navigator.pushNamed(context, '/alimentacion');
 
   void _irANotificaciones() => Navigator.pushNamed(context, '/notificaciones');
 
@@ -548,6 +552,12 @@ class _InicioScreenState extends State<InicioScreen> {
         onTap: _irACitas,
       ),
       _Accion(
+        icon: Icons.restaurant,
+        label: 'Alimentación',
+        color: const Color(0xFFF97316),
+        onTap: _irAAlimentacion,
+      ),
+      _Accion(
         icon: Icons.medical_services,
         label: 'Carnet de Vacunas',
         color: const Color(0xFF10B981),
@@ -602,7 +612,7 @@ class _InicioScreenState extends State<InicioScreen> {
             border: Border.all(color: Colors.grey[200]!),
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
@@ -617,6 +627,7 @@ class _InicioScreenState extends State<InicioScreen> {
               const SizedBox(height: 10),
               Text(
                 accion.label,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,

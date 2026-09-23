@@ -33,7 +33,6 @@ class CarnetDigitalScreen extends StatefulWidget {
 
 class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   static const Color kBlue = Color(0xFF3B82F6);
-  static const Color kYellow = Color(0xFFFCD34D);
   static const Color kSuccess = Color(0xFF10B981);
 
   final ApiService _api = ApiService();
@@ -46,11 +45,15 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   String _telefonoPropietario = '';
   List<Map<String, dynamic>> _vacunas = [];
 
-  // ------------------------------------------------------------
-  // Igual que en la web: estado de vacunación calculado
-  // ------------------------------------------------------------
+  // ────────────────────────────────────────────────────────────
+  // Helpers de estado de vacuna
+  // ────────────────────────────────────────────────────────────
   bool _esAplicada(dynamic estado) =>
-      estado == 'Aplicada' || estado == 'Completada' || estado == 'Completo' || estado == 'aplicada';
+      estado == 'Aplicada' ||
+          estado == 'Completada' ||
+          estado == 'Completo' ||
+          estado == 'aplicada';
+
   bool _esAtrasada(dynamic estado) =>
       estado == 'Atrasada' || estado == 'atrasada';
 
@@ -59,6 +62,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   int get _pct => _vacunas.isEmpty
       ? 0
       : ((_aplicadas / _vacunas.length) * 100).round();
+
   List<Map<String, dynamic>> get _proximas => _vacunas
       .where((v) => !_esAplicada(v['Estado']))
       .take(2)
@@ -82,9 +86,9 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     return 'Pendiente';
   }
 
-  // ------------------------------------------------------------
-  // Formulario "Agregar Vacuna" (igual al de la web)
-  // ------------------------------------------------------------
+  // ────────────────────────────────────────────────────────────
+  // Controladores del formulario
+  // ────────────────────────────────────────────────────────────
   final _nombreVacunaCtrl = TextEditingController();
   final _fechaAplicacionCtrl = TextEditingController();
   final _proximaDosisCtrl = TextEditingController();
@@ -160,6 +164,9 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     setState(() => _isLoading = false);
   }
 
+  // ────────────────────────────────────────────────────────────
+  // Formulario de agregar vacuna
+  // ────────────────────────────────────────────────────────────
   void _limpiarFormularioVacuna() {
     _nombreVacunaCtrl.clear();
     _fechaAplicacionCtrl.clear();
@@ -208,8 +215,8 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
       });
 
       if (!mounted) return;
-      Navigator.pop(context); // cierra el modal
-      await _cargarDatos(); // refresca la lista de vacunas
+      Navigator.pop(context);
+      await _cargarDatos();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✅ Vacuna registrada correctamente')),
@@ -249,9 +256,8 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Header verde, igual que en la web
                       Container(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(16),
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
                             colors: [Color(0xFFDCFCE7), Color(0xFFF0FDF4)],
@@ -263,14 +269,14 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                         child: Row(
                           children: [
                             Container(
-                              width: 44,
-                              height: 44,
+                              width: 40,
+                              height: 40,
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(Icons.vaccines,
-                                  color: Color(0xFF16A34A)),
+                                  color: Color(0xFF16A34A), size: 22),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -281,14 +287,14 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                                     'Agregar Vacuna',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                      fontSize: 15,
                                       color: Color(0xFF14532D),
                                     ),
                                   ),
                                   Text(
                                     'Registra una nueva vacuna para ${widget.nombreMascota}',
                                     style: const TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       color: Color(0xFF166534),
                                     ),
                                   ),
@@ -296,16 +302,14 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.close, size: 20),
+                              icon: const Icon(Icons.close, size: 18),
                               onPressed: () => Navigator.pop(dialogContext),
                             ),
                           ],
                         ),
                       ),
-
-                      // Body con el formulario
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                        padding: const EdgeInsets.fromLTRB(18, 14, 18, 4),
                         child: SingleChildScrollView(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,8 +344,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                                   );
                                 },
                               ),
-                              const SizedBox(height: 16),
-
+                              const SizedBox(height: 14),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -388,8 +391,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 16),
-
+                              const SizedBox(height: 14),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -451,25 +453,22 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 16),
-
+                              const SizedBox(height: 14),
                               _labelVacuna('OBSERVACIONES / REACCIONES'),
                               const SizedBox(height: 6),
                               TextField(
                                 controller: _observacionesCtrl,
                                 maxLines: 3,
                                 decoration: _inputDecoration(
-                                    'Ej: Sin reacciones adversas. Aplicada en clínica veterinaria...'),
+                                    'Ej: Sin reacciones adversas...'),
                               ),
                               const SizedBox(height: 8),
                             ],
                           ),
                         ),
                       ),
-
-                      // Footer con botones
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
                         child: Row(
                           children: [
                             Expanded(
@@ -477,7 +476,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                                 onPressed: () => Navigator.pop(dialogContext),
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(
-                                      vertical: 14),
+                                      vertical: 12),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -504,12 +503,12 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                                   ),
                                 )
                                     : const Icon(Icons.check, size: 18),
-                                label: const Text('Guardar Vacuna'),
+                                label: const Text('Guardar'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF16A34A),
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
-                                      vertical: 14),
+                                      vertical: 12),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -536,7 +535,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (icon != null) ...[
-          Icon(icon, size: 13, color: Colors.grey[600]),
+          Icon(icon, size: 12, color: Colors.grey[600]),
           const SizedBox(width: 4),
         ],
         Flexible(
@@ -545,7 +544,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: FontWeight.bold,
               color: Colors.grey[700],
               letterSpacing: 0.3,
@@ -553,7 +552,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           ),
         ),
         if (obligatorio)
-          const Text(' *', style: TextStyle(color: Colors.red, fontSize: 12)),
+          const Text(' *', style: TextStyle(color: Colors.red, fontSize: 11)),
       ],
     );
   }
@@ -561,10 +560,11 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   InputDecoration _inputDecoration(String? hint) {
     return InputDecoration(
       hintText: hint,
+      hintStyle: const TextStyle(fontSize: 12),
       filled: true,
       fillColor: const Color(0xFFF9FAFB),
       contentPadding:
-      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: Colors.grey[300]!),
@@ -612,7 +612,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   }
 
   // ============================================================
-  // PDF REDISEÑADO
+  // PDF (sin cambios, mantiene el diseño anterior)
   // ============================================================
   Future<void> _descargarPDF() async {
     final pdf = pw.Document();
@@ -627,7 +627,6 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
       }
     }
 
-    // Colores del PDF
     final azulPetcard = PdfColor.fromInt(0xFF2563EB);
     final azulOscuro = PdfColor.fromInt(0xFF1E3A5F);
     final grisClaro = PdfColor.fromInt(0xFFF1F5F9);
@@ -642,9 +641,6 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // ══════════════════════════════════════════════════
-              // HEADER CON DEGRADADO AZUL
-              // ══════════════════════════════════════════════════
               pw.Container(
                 padding: const pw.EdgeInsets.all(20),
                 decoration: pw.BoxDecoration(
@@ -666,32 +662,23 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                         borderRadius: pw.BorderRadius.circular(12),
                       ),
                       alignment: pw.Alignment.center,
-                      child: pw.Text(
-                        '🐾',
-                        style: pw.TextStyle(fontSize: 26),
-                      ),
+                      child: pw.Text('🐾', style: pw.TextStyle(fontSize: 26)),
                     ),
                     pw.SizedBox(width: 14),
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text(
-                          'PETCARD',
-                          style: pw.TextStyle(
-                            color: PdfColors.white,
-                            fontSize: 22,
-                            fontWeight: pw.FontWeight.bold,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
+                        pw.Text('PETCARD',
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 22,
+                              fontWeight: pw.FontWeight.bold,
+                              letterSpacing: 1.5,
+                            )),
                         pw.SizedBox(height: 2),
-                        pw.Text(
-                          'Carnet Digital de Mascota',
-                          style: pw.TextStyle(
-                            color: PdfColors.white,
-                            fontSize: 11,
-                          ),
-                        ),
+                        pw.Text('Carnet Digital de Mascota',
+                            style: pw.TextStyle(
+                                color: PdfColors.white, fontSize: 11)),
                       ],
                     ),
                     pw.Spacer(),
@@ -702,25 +689,18 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                         color: verde,
                         borderRadius: pw.BorderRadius.circular(20),
                       ),
-                      child: pw.Text(
-                        'VÁLIDO',
-                        style: pw.TextStyle(
-                          color: PdfColors.white,
-                          fontSize: 9,
-                          fontWeight: pw.FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
+                      child: pw.Text('VÁLIDO',
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 9,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 0.5,
+                          )),
                     ),
                   ],
                 ),
               ),
-
               pw.SizedBox(height: 20),
-
-              // ══════════════════════════════════════════════════
-              // CARD DE LA MASCOTA
-              // ══════════════════════════════════════════════════
               pw.Container(
                 padding: const pw.EdgeInsets.all(18),
                 decoration: pw.BoxDecoration(
@@ -730,7 +710,6 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    // Foto o ícono
                     pw.Container(
                       width: 90,
                       height: 90,
@@ -743,51 +722,42 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                           ? pw.ClipRRect(
                         horizontalRadius: 10,
                         verticalRadius: 10,
-                        child: pw.Image(
-                          fotoPdf,
-                          width: 90,
-                          height: 90,
-                          fit: pw.BoxFit.cover,
-                        ),
+                        child: pw.Image(fotoPdf,
+                            width: 90,
+                            height: 90,
+                            fit: pw.BoxFit.cover),
                       )
-                          : pw.Text(
-                        '🐾',
-                        style: pw.TextStyle(fontSize: 40),
-                      ),
+                          : pw.Text('🐾',
+                          style: pw.TextStyle(fontSize: 40)),
                     ),
                     pw.SizedBox(width: 16),
-
-                    // Datos de la mascota
                     pw.Expanded(
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text(
-                            widget.nombreMascota,
-                            style: pw.TextStyle(
-                              fontSize: 22,
-                              fontWeight: pw.FontWeight.bold,
-                              color: azulOscuro,
-                            ),
-                          ),
+                          pw.Text(widget.nombreMascota,
+                              style: pw.TextStyle(
+                                fontSize: 22,
+                                fontWeight: pw.FontWeight.bold,
+                                color: azulOscuro,
+                              )),
                           pw.SizedBox(height: 4),
-                          pw.Text(
-                            '${widget.especie} · ${widget.raza}',
-                            style: pw.TextStyle(
-                              fontSize: 12,
-                              color: grisTexto,
-                            ),
-                          ),
+                          pw.Text('${widget.especie} · ${widget.raza}',
+                              style: pw.TextStyle(
+                                  fontSize: 12, color: grisTexto)),
                           pw.SizedBox(height: 12),
-                          // Grid de datos
                           pw.Wrap(
                             spacing: 20,
                             runSpacing: 8,
                             children: [
                               _pdfDato('EDAD', _calcularEdad(), azulOscuro),
-                              _pdfDato('PESO', '${widget.peso} kg', azulOscuro),
+                              _pdfDato(
+                                  'PESO', '${widget.peso} kg', azulOscuro),
                               _pdfDato('SEXO', widget.sexo, azulOscuro),
-                              _pdfDato('ID CARNET', 'PET-${widget.idMascota.toString().padLeft(6, '0')}', azulOscuro),
+                              _pdfDato(
+                                  'ID CARNET',
+                                  'PET-${widget.idMascota.toString().padLeft(6, '0')}',
+                                  azulOscuro),
                             ],
                           ),
                         ],
@@ -796,12 +766,7 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                   ],
                 ),
               ),
-
               pw.SizedBox(height: 20),
-
-              // ══════════════════════════════════════════════════
-              // DATOS DEL PROPIETARIO
-              // ══════════════════════════════════════════════════
               pw.Container(
                 width: double.infinity,
                 padding: const pw.EdgeInsets.all(14),
@@ -812,24 +777,18 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Row(
-                      children: [
-                        pw.Text('', style: pw.TextStyle(fontSize: 14)),
-                        pw.SizedBox(width: 6),
-                        pw.Text(
-                          'PROPIETARIO',
-                          style: pw.TextStyle(
-                            fontSize: 10,
-                            fontWeight: pw.FontWeight.bold,
-                            color: grisTexto,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
+                    pw.Text('PROPIETARIO',
+                        style: pw.TextStyle(
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                          color: grisTexto,
+                          letterSpacing: 0.5,
+                        )),
                     pw.SizedBox(height: 6),
                     pw.Text(
-                      _nombrePropietario.isEmpty ? 'Sin nombre' : _nombrePropietario,
+                      _nombrePropietario.isEmpty
+                          ? 'Sin nombre'
+                          : _nombrePropietario,
                       style: pw.TextStyle(
                         fontSize: 14,
                         fontWeight: pw.FontWeight.bold,
@@ -840,35 +799,33 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                     pw.Row(
                       children: [
                         pw.Text(
-                          '${_telefonoPropietario.isEmpty ? "—" : _telefonoPropietario}',
-                          style: pw.TextStyle(fontSize: 11, color: grisTexto),
+                          _telefonoPropietario.isEmpty
+                              ? '—'
+                              : _telefonoPropietario,
+                          style: pw.TextStyle(
+                              fontSize: 11, color: grisTexto),
                         ),
                         pw.SizedBox(width: 16),
                         pw.Text(
-                          '${_emailPropietario.isEmpty ? "—" : _emailPropietario}',
-                          style: pw.TextStyle(fontSize: 11, color: grisTexto),
+                          _emailPropietario.isEmpty
+                              ? '—'
+                              : _emailPropietario,
+                          style: pw.TextStyle(
+                              fontSize: 11, color: grisTexto),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-
               pw.SizedBox(height: 20),
-
-              // ══════════════════════════════════════════════════
-              // VACUNAS REGISTRADAS
-              // ══════════════════════════════════════════════════
-              pw.Text(
-                'VACUNAS REGISTRADAS',
-                style: pw.TextStyle(
-                  fontSize: 13,
-                  fontWeight: pw.FontWeight.bold,
-                  color: azulOscuro,
-                ),
-              ),
+              pw.Text('VACUNAS REGISTRADAS',
+                  style: pw.TextStyle(
+                    fontSize: 13,
+                    fontWeight: pw.FontWeight.bold,
+                    color: azulOscuro,
+                  )),
               pw.SizedBox(height: 10),
-
               if (_vacunas.isEmpty)
                 pw.Container(
                   width: double.infinity,
@@ -892,7 +849,6 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                     3: const pw.FlexColumnWidth(1.8),
                   },
                   children: [
-                    // Encabezados
                     pw.TableRow(
                       decoration: pw.BoxDecoration(color: azulOscuro),
                       children: [
@@ -902,7 +858,6 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                         _pdfCeldaHeader('PRÓXIMA'),
                       ],
                     ),
-                    // Filas
                     ..._vacunas.asMap().entries.map((entry) {
                       final index = entry.key;
                       final v = entry.value;
@@ -912,21 +867,19 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                           color: esPar ? PdfColors.white : grisClaro,
                         ),
                         children: [
-                          _pdfCeldaTexto(v['Nombre_vacuna'] ?? 'Sin nombre'),
+                          _pdfCeldaTexto(
+                              v['Nombre_vacuna'] ?? 'Sin nombre'),
                           _pdfCeldaTexto(v['Lote'] ?? '—'),
-                          _pdfCeldaTexto(_formatearFecha(v['Fecha_aplicacion'])),
-                          _pdfCeldaTexto(_formatearFecha(v['Proxima_dosis'])),
+                          _pdfCeldaTexto(
+                              _formatearFecha(v['Fecha_aplicacion'])),
+                          _pdfCeldaTexto(
+                              _formatearFecha(v['Proxima_dosis'])),
                         ],
                       );
                     }),
                   ],
                 ),
-
               pw.Spacer(),
-
-              // ══════════════════════════════════════════════════
-              // FOOTER
-              // ══════════════════════════════════════════════════
               pw.Container(
                 width: double.infinity,
                 padding: const pw.EdgeInsets.all(10),
@@ -937,20 +890,12 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text(
-                      '© 2026 PetCard',
-                      style: pw.TextStyle(
-                        color: PdfColors.white,
-                        fontSize: 9,
-                      ),
-                    ),
-                    pw.Text(
-                      'Documento oficial generado por PetCard',
-                      style: pw.TextStyle(
-                        color: PdfColors.white,
-                        fontSize: 9,
-                      ),
-                    ),
+                    pw.Text('© 2026 PetCard',
+                        style: pw.TextStyle(
+                            color: PdfColors.white, fontSize: 9)),
+                    pw.Text('Documento oficial generado por PetCard',
+                        style: pw.TextStyle(
+                            color: PdfColors.white, fontSize: 9)),
                   ],
                 ),
               ),
@@ -961,7 +906,8 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     );
 
     try {
-      await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+      await Printing.layoutPdf(
+          onLayout: (PdfPageFormat format) async => pdf.save());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Carnet generado correctamente')),
@@ -972,27 +918,22 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     }
   }
 
-  // Helpers para el PDF
   pw.Widget _pdfDato(String label, String value, PdfColor color) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text(
-          label,
-          style: pw.TextStyle(
-            fontSize: 8,
-            color: PdfColor.fromInt(0xFF64748B),
-            fontWeight: pw.FontWeight.bold,
-          ),
-        ),
-        pw.Text(
-          value,
-          style: pw.TextStyle(
-            fontSize: 11,
-            color: color,
-            fontWeight: pw.FontWeight.bold,
-          ),
-        ),
+        pw.Text(label,
+            style: pw.TextStyle(
+              fontSize: 8,
+              color: PdfColor.fromInt(0xFF64748B),
+              fontWeight: pw.FontWeight.bold,
+            )),
+        pw.Text(value,
+            style: pw.TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: pw.FontWeight.bold,
+            )),
       ],
     );
   }
@@ -1000,33 +941,29 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
   pw.Widget _pdfCeldaHeader(String texto) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(8),
-      child: pw.Text(
-        texto,
-        style: pw.TextStyle(
-          color: PdfColors.white,
-          fontSize: 9,
-          fontWeight: pw.FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
-      ),
+      child: pw.Text(texto,
+          style: pw.TextStyle(
+            color: PdfColors.white,
+            fontSize: 9,
+            fontWeight: pw.FontWeight.bold,
+            letterSpacing: 0.5,
+          )),
     );
   }
 
   pw.Widget _pdfCeldaTexto(String texto) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(8),
-      child: pw.Text(
-        texto,
-        style: pw.TextStyle(
-          fontSize: 10,
-          color: PdfColor.fromInt(0xFF1A1A2E),
-        ),
-      ),
+      child: pw.Text(texto,
+          style: pw.TextStyle(
+            fontSize: 10,
+            color: PdfColor.fromInt(0xFF1A1A2E),
+          )),
     );
   }
 
   // ============================================================
-  // BUILD (pantalla)
+  // BUILD de la pantalla
   // ============================================================
   @override
   Widget build(BuildContext context) {
@@ -1041,20 +978,20 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
         ),
         title: Row(
           children: const [
-            Icon(Icons.pets, color: kBlue, size: 28),
+            Icon(Icons.pets, color: kBlue, size: 24),
             SizedBox(width: 8),
-            Text('PetCard',
+            Text('Carnet',
                 style: TextStyle(
                     color: Color(0xFF1E293B),
                     fontWeight: FontWeight.bold,
-                    fontSize: 20)),
+                    fontSize: 18)),
           ],
         ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(14.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1066,20 +1003,18 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                   color: const Color(0xFFFEE2E2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  ' ${_error ?? 'Error al cargar datos'}',
-                  style: const TextStyle(
-                      color: Color(0xFFB91C1C), fontSize: 13),
-                ),
+                child: Text('⚠️ $_error',
+                    style: const TextStyle(
+                        color: Color(0xFFB91C1C), fontSize: 12)),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
             ],
 
-            // ── Encabezado verde "Carnet de Vacunación" (igual que la web) ──
+            // Header verde compacto
             _buildCarnetHeader(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // ── Botón agregar vacuna ──
+            // Botón agregar vacuna
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
@@ -1089,50 +1024,55 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                icon: const Icon(Icons.add, size: 18, color: Color(0xFF16A34A)),
+                icon: const Icon(Icons.add,
+                    size: 16, color: Color(0xFF16A34A)),
                 label: const Text(
                   'Agregar Vacuna',
                   style: TextStyle(
-                      color: Color(0xFF16A34A), fontWeight: FontWeight.bold),
+                      color: Color(0xFF16A34A),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13),
                 ),
               ),
             ),
             const SizedBox(height: 8),
 
-            // ── Tabla de vacunas (Estado, Vacuna, F.Programada, F.Aplicada, Lote, Obs.) ──
+            // Tabla de vacunas (solo 4 columnas)
             _buildTablaVacunas(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // ── Observaciones médicas ──
+            // Observaciones médicas
             _buildObservacionesMedicas(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
 
-            // ── Estado de vacunación (%, barra, stats) ──
+            // Estado de vacunación (más compacto)
             _buildEstadoVacunacion(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // ── Próximas vacunas ──
+            // Próximas vacunas
             _buildProximasVacunas(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // ── Información del carnet ──
+            // Información del carnet
             _buildInformacionCarnet(),
             const SizedBox(height: 12),
 
-            // ── Botones Descargar PDF / Imprimir ──
+            // Botones PDF / Imprimir
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _descargarPDF,
-                    icon: const Icon(Icons.download, color: Colors.white, size: 18),
+                    icon: const Icon(Icons.download,
+                        color: Colors.white, size: 16),
                     label: const Text('Descargar PDF',
                         style: TextStyle(
                             color: Colors.white,
-                            fontWeight: FontWeight.bold)),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kBlue,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                       elevation: 2,
@@ -1143,12 +1083,16 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _descargarPDF,
-                    icon: const Icon(Icons.print, size: 18, color: kBlue),
+                    icon: const Icon(Icons.print,
+                        size: 16, color: kBlue),
                     label: const Text('Imprimir',
-                        style: TextStyle(color: kBlue, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            color: kBlue,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13)),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: kBlue),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                     ),
@@ -1163,20 +1107,29 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     );
   }
 
-  // ============================================================
-  // Encabezado verde "Carnet de Vacunación" (equivalente a
-  // .vacuna-header de la web)
-  // ============================================================
+  // ────────────────────────────────────────────────────────────
+  // Header verde compacto (SIN veterinario falso)
+  // ────────────────────────────────────────────────────────────
   Widget _buildCarnetHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: kSuccess,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.vaccines,
+                color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1184,91 +1137,78 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                 const Text('Carnet de Vacunación',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 17,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text('${widget.nombreMascota} · ${widget.especie}',
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 13)),
+                        fontSize: 12)),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('Veterinario:',
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85), fontSize: 11)),
-              const Text('Dr. José García',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12)),
-              const SizedBox(height: 2),
-              Text('Matrícula: 47789',
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85), fontSize: 11)),
-            ],
           ),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // Tabla de vacunas, con scroll horizontal (igual columnas que
-  // la tabla de la web)
-  // ============================================================
+  // ────────────────────────────────────────────────────────────
+  // Tabla de vacunas con 4 columnas (más compacta)
+  // ────────────────────────────────────────────────────────────
   Widget _buildTablaVacunas() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[200]!),
       ),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       child: _vacunas.isEmpty
           ? Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Text('Sin vacunas registradas todavía.',
-            style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Center(
+          child: Text(
+            'Sin vacunas registradas todavía.',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
+        ),
       )
-          : SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFF1D4ED8)),
-          headingTextStyle: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-          dataTextStyle: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
-          columnSpacing: 18,
-          columns: const [
-            DataColumn(label: Text('Estado')),
-            DataColumn(label: Text('Vacuna')),
-            DataColumn(label: Text('F. Programada')),
-            DataColumn(label: Text('F. Aplicada')),
-            DataColumn(label: Text('Lote')),
-            DataColumn(label: Text('Observaciones')),
-          ],
-          rows: _vacunas.map((v) {
-            return DataRow(cells: [
-              DataCell(Text(_estadoIcono(v['Estado']),
-                  style: TextStyle(
-                      color: _estadoColor(v['Estado']),
-                      fontWeight: FontWeight.bold))),
-              DataCell(Text(v['Nombre_vacuna'] ?? '—',
-                  style: const TextStyle(
-                      color: kBlue, fontWeight: FontWeight.bold))),
-              DataCell(Text(_formatearFecha(v['Proxima_dosis']))),
-              DataCell(Text(_formatearFecha(v['Fecha_aplicacion']))),
-              DataCell(Text((v['Lote'] ?? '—').toString())),
-              DataCell(SizedBox(
-                width: 140,
-                child: Text((v['Observaciones'] ?? '—').toString(),
-                    overflow: TextOverflow.ellipsis, maxLines: 2),
-              )),
-            ]);
-          }).toList(),
+          : Center(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingRowColor:
+            WidgetStateProperty.all(const Color(0xFF1D4ED8)),
+            headingTextStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 11),
+            dataTextStyle: const TextStyle(
+                fontSize: 11.5, color: Color(0xFF111827)),
+            columnSpacing: 14,
+            horizontalMargin: 10,
+            columns: const [
+              DataColumn(label: Text('Estado')),
+              DataColumn(label: Text('Vacuna')),
+              DataColumn(label: Text('Aplicada')),
+              DataColumn(label: Text('Próxima')),
+            ],
+            rows: _vacunas.map((v) {
+              return DataRow(cells: [
+                DataCell(Text(_estadoIcono(v['Estado']),
+                    style: TextStyle(
+                        color: _estadoColor(v['Estado']),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13))),
+                DataCell(Text(v['Nombre_vacuna'] ?? '—',
+                    style: const TextStyle(
+                        color: kBlue,
+                        fontWeight: FontWeight.bold))),
+                DataCell(Text(_formatearFecha(v['Fecha_aplicacion']))),
+                DataCell(Text(_formatearFecha(v['Proxima_dosis']))),
+              ]);
+            }).toList(),
+          ),
         ),
       ),
     );
@@ -1276,10 +1216,11 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
 
   Widget _buildObservacionesMedicas() {
     final conObs = _vacunas.where((v) =>
-    v['Observaciones'] != null && v['Observaciones'].toString().isNotEmpty);
+    v['Observaciones'] != null &&
+        v['Observaciones'].toString().isNotEmpty);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(12),
@@ -1288,96 +1229,120 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Observaciones Médicas:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 12.5)),
           const SizedBox(height: 6),
           if (conObs.isEmpty)
             Text('Sin observaciones registradas.',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]))
+                style:
+                TextStyle(fontSize: 11.5, color: Colors.grey[600]))
           else
             ...conObs.map((v) => Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: Text('• ${v['Nombre_vacuna']}: ${v['Observaciones']}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+              child: Text(
+                  '• ${v['Nombre_vacuna']}: ${v['Observaciones']}',
+                  style: TextStyle(
+                      fontSize: 11.5, color: Colors.grey[700])),
             )),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // Card "Estado de Vacunación" (% + barra + stats), igual a la
-  // web
-  // ============================================================
+  // ────────────────────────────────────────────────────────────
+  // Estado de vacunación (más compacto)
+  // ────────────────────────────────────────────────────────────
   Widget _buildEstadoVacunacion() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[200]!),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Estado de Vacunación',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(height: 12),
-          Center(
-            child: Column(
-              children: [
-                Text('$_pct%',
-                    style: const TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A))),
-                Text('Carnet de Vacunación',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              ],
-            ),
+              style:
+              TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              // Porcentaje a la izquierda
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('$_pct%',
+                      style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A))),
+                  Text('Completado',
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey[600])),
+                ],
+              ),
+              const SizedBox(width: 16),
+              // Barra a la derecha
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: _pct / 100,
+                    minHeight: 8,
+                    backgroundColor: const Color(0xFFE5E7EB),
+                    valueColor: const AlwaysStoppedAnimation(
+                        Color(0xFFCA8A04)),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: _pct / 100,
-              minHeight: 8,
-              backgroundColor: const Color(0xFFE5E7EB),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFFCA8A04)),
-            ),
+          Row(
+            children: [
+              Expanded(
+                  child: _miniStat('Aplicadas', '$_aplicadas',
+                      const Color(0xFF16A34A))),
+              Expanded(
+                  child: _miniStat('Pendientes', '$_pendientes',
+                      const Color(0xFFCA8A04))),
+              Expanded(
+                  child: _miniStat('Próximas', '${_proximas.length}',
+                      const Color(0xFF2563EB))),
+            ],
           ),
-          const SizedBox(height: 12),
-          _filaStat('Aplicadas:', '$_aplicadas'),
-          _filaStat('Pendientes o demorar:', '$_pendientes'),
-          _filaStat('Próximas:', '${_proximas.length}'),
         ],
       ),
     );
   }
 
-  Widget _filaStat(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-        ],
-      ),
+  Widget _miniStat(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(value,
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color)),
+        Text(label,
+            style: TextStyle(fontSize: 10.5, color: Colors.grey[600])),
+      ],
     );
   }
 
-  // ============================================================
-  // Card "Próximas Vacunas"
-  // ============================================================
+  // ────────────────────────────────────────────────────────────
+  // Próximas vacunas
+  // ────────────────────────────────────────────────────────────
   Widget _buildProximasVacunas() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[200]!),
       ),
       child: Column(
@@ -1385,32 +1350,36 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.schedule, size: 16, color: Color(0xFFEA580C)),
+              Icon(Icons.schedule,
+                  size: 15, color: Color(0xFFEA580C)),
               SizedBox(width: 6),
               Text('Próximas Vacunas',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 13,
                       color: Color(0xFFEA580C))),
             ],
           ),
           const SizedBox(height: 10),
           if (_proximas.isEmpty)
             Text('Sin vacunas pendientes.',
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]))
+                style:
+                TextStyle(fontSize: 12, color: Colors.grey[600]))
           else
             ..._proximas.map((v) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: Text(v['Nombre_vacuna'] ?? '—',
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13)),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5)),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -1431,8 +1400,10 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
                       ),
                     ],
                   ),
-                  Text('Próxima: ${_formatearFecha(v['Proxima_dosis'])}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text(
+                      'Próxima: ${_formatearFecha(v['Proxima_dosis'])}',
+                      style: TextStyle(
+                          fontSize: 11.5, color: Colors.grey[600])),
                 ],
               ),
             )),
@@ -1442,12 +1413,15 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
               onPressed: () => Navigator.pushNamed(context, '/citas'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: kSuccess,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
               ),
               child: const Text('Agendar Vacunación',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13)),
             ),
           ),
         ],
@@ -1455,16 +1429,16 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
     );
   }
 
-  // ============================================================
-  // Card "Información del Carnet"
-  // ============================================================
+  // ────────────────────────────────────────────────────────────
+  // Información del carnet
+  // ────────────────────────────────────────────────────────────
   Widget _buildInformacionCarnet() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[200]!),
       ),
       child: Column(
@@ -1472,12 +1446,13 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.description, size: 16, color: Color(0xFF16A34A)),
+              Icon(Icons.description,
+                  size: 15, color: Color(0xFF16A34A)),
               SizedBox(width: 6),
               Text('Información del Carnet',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 13,
                       color: Color(0xFF16A34A))),
             ],
           ),
@@ -1486,8 +1461,10 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
           _filaInfo('Especie:', widget.especie),
           _filaInfo('Raza:', widget.raza),
           _filaInfo('ID:', '${widget.idMascota}'),
-          _filaInfo('Fecha de nacimiento:',
-              widget.fechaNacimiento != null && widget.fechaNacimiento!.isNotEmpty
+          _filaInfo(
+              'Fecha de nacimiento:',
+              widget.fechaNacimiento != null &&
+                  widget.fechaNacimiento!.isNotEmpty
                   ? _formatearFecha(widget.fechaNacimiento)
                   : '—'),
           _filaInfo(
@@ -1502,15 +1479,18 @@ class _CarnetDigitalScreenState extends State<CarnetDigitalScreen> {
 
   Widget _filaInfo(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+          Text(label,
+              style:
+              TextStyle(fontSize: 12.5, color: Colors.grey[600])),
           Flexible(
             child: Text(value,
                 textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
