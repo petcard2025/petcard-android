@@ -46,7 +46,9 @@ class PlanAlimentacion {
       tipoDieta: j['Tipo_dieta']?.toString(),
       frecuencia: j['Frecuencia']?.toString(),
       horario: j['Horario']?.toString(),
-      calorias: j['Calorias'] is num ? j['Calorias'] as num : num.tryParse('${j['Calorias']}'),
+      calorias: j['Calorias'] is num
+          ? j['Calorias'] as num
+          : num.tryParse('${j['Calorias']}'),
       alergias: j['Alergias']?.toString(),
       suplementos: j['Suplementos']?.toString(),
       comidas: j['Comidas']?.toString(),
@@ -77,10 +79,14 @@ class VetAlimentacionScreen extends StatefulWidget {
   final String nombreVeterinario;
   final String? idVeterinario;
 
+  /// Cuando es true, no pinta Scaffold ni AppBar. Se usa dentro del dashboard.
+  final bool embebida;
+
   const VetAlimentacionScreen({
     super.key,
     required this.nombreVeterinario,
     this.idVeterinario,
+    this.embebida = false,
   });
 
   @override
@@ -101,7 +107,9 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
   @override
   void initState() {
     super.initState();
-    _verificarAcceso();
+    if (!widget.embebida) {
+      _verificarAcceso();
+    }
     _cargarTodo();
   }
 
@@ -120,12 +128,12 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
       _error = null;
     });
     try {
-      final planesData = await _api.obtenerPlanesAlimentacion();
+      final planesData = await _api.obtenerLista('/alimentacion');
       final listadoPlanes = planesData
-          .map((e) => PlanAlimentacion.fromJson(e))
+          .map((e) => PlanAlimentacion.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      final citasData = await _api.obtenerCitasAdmin();
+      final citasData = await _api.obtenerLista('/citas');
       final vistos = <String>{};
       final opciones = <OpcionAtendida>[];
       for (final c in citasData) {
@@ -154,7 +162,9 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Error al cargar datos nutricionales.');
+      if (mounted) {
+        setState(() => _error = 'Error al cargar datos nutricionales.');
+      }
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -162,127 +172,169 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
 
   List<PlanAlimentacion> get _planesFiltrados {
     return _planes.where((p) {
-      final texto = '${p.nombreMascota ?? ''} ${p.tipoDieta ?? ''}'.toLowerCase();
+      final texto =
+      '${p.nombreMascota ?? ''} ${p.tipoDieta ?? ''}'.toLowerCase();
       final coincideTexto = texto.contains(_busqueda.toLowerCase());
-      final coincideEstado = _filtroEstado == 'Todos' || p.estado == _filtroEstado;
+      final coincideEstado =
+          _filtroEstado == 'Todos' || p.estado == _filtroEstado;
       return coincideTexto && coincideEstado;
     }).toList();
   }
 
-  Color _colorEstado(String estado) => estado == 'Activo' ? VetColors.green : VetColors.yellow;
-  Color _bgEstado(String estado) => estado == 'Activo' ? VetColors.greenBg : VetColors.yellowBg;
+  Color _colorEstado(String estado) =>
+      estado == 'Activo' ? VetColors.green : VetColors.yellow;
+  Color _bgEstado(String estado) =>
+      estado == 'Activo' ? VetColors.greenBg : VetColors.yellowBg;
+
+  // ============ CONTENIDO (sin Scaffold) ============
+  Widget _buildContenido() {
+    return RefreshIndicator(
+      onRefresh: _cargarTodo,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Text(
+                  'Planes nutricionales de las mascotas, ${widget.nombreVeterinario}',
+                  style: const TextStyle(
+                      fontSize: 12.5, color: VetColors.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  onChanged: (v) => setState(() => _busqueda = v),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por mascota o tipo de dieta...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: VetColors.border),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _filtroEstado,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                            const BorderSide(color: VetColors.border),
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'Todos', child: Text('Todos')),
+                          DropdownMenuItem(
+                              value: 'Activo', child: Text('Activo')),
+                          DropdownMenuItem(
+                              value: 'Pendiente', child: Text('Pendiente')),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _filtroEstado = v ?? 'Todos'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text('${_planesFiltrados.length} result.',
+                        style: const TextStyle(
+                            fontSize: 12, color: VetColors.muted)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: VetColors.redBg,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text(_error!,
+                    style: const TextStyle(color: VetColors.red)),
+              ),
+            ),
+          Expanded(
+            child: _cargando
+                ? const Center(
+                child: CircularProgressIndicator(color: VetColors.blue))
+                : _planesFiltrados.isEmpty
+                ? const Center(
+                child: Text('No se encontraron planes con ese filtro.',
+                    style: TextStyle(color: VetColors.muted)))
+                : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+              itemCount: _planesFiltrados.length,
+              itemBuilder: (context, i) {
+                final plan = _planesFiltrados[i];
+                return _PlanCard(
+                  plan: plan,
+                  color: _colorEstado(plan.estado),
+                  bg: _bgEstado(plan.estado),
+                  onTap: () => _abrirDetalle(plan),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embebida) {
+      // Sin Scaffold. El FAB lo dejamos flotando con un Stack.
+      return Stack(
+        children: [
+          _buildContenido(),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton.extended(
+              backgroundColor: VetColors.green,
+              onPressed: _abrirNuevoPlan,
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text('Nuevo Plan',
+                  style: TextStyle(color: Colors.white)),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
         backgroundColor: VetColors.blue,
         elevation: 0,
         title: const Text('Alimentación',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+            style: TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w800)),
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: VetColors.green,
         onPressed: _abrirNuevoPlan,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Nuevo Plan', style: TextStyle(color: Colors.white)),
+        label:
+        const Text('Nuevo Plan', style: TextStyle(color: Colors.white)),
       ),
-      body: RefreshIndicator(
-        onRefresh: _cargarTodo,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Text(
-                    'Planes nutricionales de las mascotas, ${widget.nombreVeterinario}',
-                    style: const TextStyle(fontSize: 12.5, color: VetColors.textSecondary),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    onChanged: (v) => setState(() => _busqueda = v),
-                    decoration: InputDecoration(
-                      hintText: 'Buscar por mascota o tipo de dieta...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: VetColors.border),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _filtroEstado,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: VetColors.border),
-                            ),
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 'Todos', child: Text('Todos')),
-                            DropdownMenuItem(value: 'Activo', child: Text('Activo')),
-                            DropdownMenuItem(value: 'Pendiente', child: Text('Pendiente')),
-                          ],
-                          onChanged: (v) => setState(() => _filtroEstado = v ?? 'Todos'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text('${_planesFiltrados.length} result.',
-                          style: const TextStyle(fontSize: 12, color: VetColors.muted)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                      color: VetColors.redBg, borderRadius: BorderRadius.circular(10)),
-                  child: Text('⚠️ $_error', style: const TextStyle(color: VetColors.red)),
-                ),
-              ),
-            Expanded(
-              child: _cargando
-                  ? const Center(child: CircularProgressIndicator(color: VetColors.blue))
-                  : _planesFiltrados.isEmpty
-                  ? const Center(
-                  child: Text('No se encontraron planes con ese filtro.',
-                      style: TextStyle(color: VetColors.muted)))
-                  : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
-                itemCount: _planesFiltrados.length,
-                itemBuilder: (context, i) {
-                  final plan = _planesFiltrados[i];
-                  return _PlanCard(
-                    plan: plan,
-                    color: _colorEstado(plan.estado),
-                    bg: _bgEstado(plan.estado),
-                    onTap: () => _abrirDetalle(plan),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+      body: _buildContenido(),
     );
   }
 
+  // ============ DETALLE ============
   Widget _detailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -291,7 +343,10 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: const TextStyle(color: VetColors.muted, fontWeight: FontWeight.w600, fontSize: 13)),
+              style: const TextStyle(
+                  color: VetColors.muted,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13)),
           Flexible(
             child: Text(value,
                 textAlign: TextAlign.right,
@@ -324,31 +379,49 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Detalle del plan',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: VetColors.text)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: VetColors.text)),
                   const SizedBox(height: 12),
                   _detailRow('Mascota', plan.nombreMascota ?? '—'),
                   _detailRow('Servicio', plan.nombreServicio ?? '—'),
                   _detailRow('Tipo de dieta', plan.tipoDieta ?? '—'),
                   _detailRow('Frecuencia', plan.frecuencia ?? '—'),
                   _detailRow('Horario', plan.horario ?? '—'),
-                  _detailRow('Calorías', plan.calorias != null ? '${plan.calorias}' : '—'),
-                  _detailRow('Alergias', plan.alergias?.isNotEmpty == true ? plan.alergias! : 'Ninguna'),
+                  _detailRow('Calorías',
+                      plan.calorias != null ? '${plan.calorias}' : '—'),
+                  _detailRow(
+                      'Alergias',
+                      plan.alergias?.isNotEmpty == true
+                          ? plan.alergias!
+                          : 'Ninguna'),
                   _detailRow('Suplementos', plan.suplementos ?? '—'),
-                  _detailRow('Periodo',
+                  _detailRow(
+                      'Periodo',
                       '${(plan.fechaInicio ?? '—').toString().substring(0, plan.fechaInicio != null && plan.fechaInicio!.length >= 10 ? 10 : plan.fechaInicio?.length ?? 0)} — ${(plan.fechaFin ?? '—')}'),
                   const SizedBox(height: 10),
                   const Text('Comidas',
-                      style: TextStyle(fontSize: 12.5, color: VetColors.muted, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          color: VetColors.muted,
+                          fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   _textBlock(plan.comidas ?? 'Sin comidas registradas.'),
                   const SizedBox(height: 10),
                   const Text('Diagnóstico',
-                      style: TextStyle(fontSize: 12.5, color: VetColors.muted, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          color: VetColors.muted,
+                          fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   _textBlock(plan.diagnostico ?? 'No registrado.'),
                   const SizedBox(height: 10),
                   const Text('Observaciones',
-                      style: TextStyle(fontSize: 12.5, color: VetColors.muted, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          color: VetColors.muted,
+                          fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   _textBlock(plan.observaciones ?? 'Sin observaciones.'),
                 ],
@@ -369,10 +442,12 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
         border: Border.all(color: VetColors.border),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(text, style: const TextStyle(fontSize: 13, color: VetColors.text)),
+      child:
+      Text(text, style: const TextStyle(fontSize: 13, color: VetColors.text)),
     );
   }
 
+  // ============ NUEVO PLAN ============
   void _abrirNuevoPlan() {
     String? claveSeleccionada;
     final tipoDietaCtrl = TextEditingController();
@@ -396,147 +471,193 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
       ),
       builder: (context) {
         return StatefulBuilder(builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Nuevo plan de alimentación',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: VetColors.text)),
-                  const SizedBox(height: 14),
-                  const Text('Mascota / Servicio atendido',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: claveSeleccionada,
-                    // Sin esto, el DropdownButton no limita el ancho de su
-                    // contenido al espacio disponible y el texto largo del
-                    // hint/los items se sale por la derecha (overflow).
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF9FAFB),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: VetColors.border),
-                      ),
-                    ),
-                    hint: const Text(
-                      'Selecciona una mascota que hayas atendido',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    items: _opcionesAtendidas
-                        .map((op) => DropdownMenuItem(
-                      value: '${op.idMascota}-${op.idServicio}',
-                      child: Text('${op.nombreMascota} — ${op.nombreServicio}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ))
-                        .toList(),
-                    onChanged: (v) => setModalState(() => claveSeleccionada = v),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Solo puedes crear planes para mascotas y servicios de citas que hayas atendido.',
-                    style: TextStyle(fontSize: 11.5, color: VetColors.muted),
-                  ),
-                  const SizedBox(height: 14),
-                  _campo('Tipo de dieta', tipoDietaCtrl, hint: 'Balanceada, especial digestiva...'),
-                  Row(
+          return DraggableScrollableSheet(
+            initialChildSize: 0.85,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (context, scrollController) {
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 12,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                ),
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: _campo('Frecuencia', frecuenciaCtrl, hint: '2 veces al día')),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child: _campo('Calorías', caloriasCtrl,
-                              hint: '1200', keyboardType: TextInputType.number)),
-                    ],
-                  ),
-                  _campo('Horario', horarioCtrl, hint: '8am - 6pm'),
-                  _campo('Alergias', alergiasCtrl, hint: 'Ninguna'),
-                  _campo('Suplementos', suplementosCtrl, hint: 'Vitaminas'),
-                  _campo('Comidas', comidasCtrl, maxLines: 2, hint: 'Desayuno 8:00 400 cal...'),
-                  _campo('Diagnóstico nutricional', diagnosticoCtrl, maxLines: 2),
-                  _campo('Observaciones', observacionesCtrl, maxLines: 2),
-                  if (errorLocal != null) ...[
-                    const SizedBox(height: 8),
-                    Text(errorLocal!, style: const TextStyle(color: VetColors.red, fontSize: 12.5)),
-                  ],
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: guardando ? null : () => Navigator.pop(context),
-                          child: const Text('Cancelar'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: guardando
-                              ? null
-                              : () async {
-                            if (claveSeleccionada == null ||
-                                tipoDietaCtrl.text.isEmpty ||
-                                frecuenciaCtrl.text.isEmpty ||
-                                caloriasCtrl.text.isEmpty) {
-                              setModalState(() {
-                                errorLocal =
-                                'Selecciona la mascota y completa dieta, frecuencia y calorías.';
-                              });
-                              return;
-                            }
-                            final partes = claveSeleccionada!.split('-');
-                            setModalState(() => guardando = true);
-                            try {
-                              await _api.crearPlanAlimentacion({
-                                'ID_mascota': partes[0],
-                                'ID_servicio': partes.length > 1 ? partes[1] : null,
-                                'Tipo_dieta': tipoDietaCtrl.text,
-                                'Frecuencia': frecuenciaCtrl.text,
-                                'Calorias': num.tryParse(caloriasCtrl.text) ?? 0,
-                                'Horario': horarioCtrl.text,
-                                'Alergias': alergiasCtrl.text,
-                                'Suplementos': suplementosCtrl.text,
-                                'Comidas': comidasCtrl.text,
-                                'Diagnostico': diagnosticoCtrl.text,
-                                'Observaciones': observacionesCtrl.text,
-                                'Revision_nutricional': 'Activo',
-                              });
-                              await _cargarTodo();
-                              if (context.mounted) Navigator.pop(context);
-                            } catch (e) {
-                              setModalState(() {
-                                guardando = false;
-                                errorLocal = 'No se pudo crear el plan de alimentación.';
-                              });
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: VetColors.green,
-                            foregroundColor: Colors.white,
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: VetColors.border,
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                          child: guardando
-                              ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : const Text('Crear plan'),
                         ),
+                      ),
+                      const Text('Nuevo plan de alimentación',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: VetColors.text)),
+                      const SizedBox(height: 14),
+                      const Text('Mascota / Servicio atendido',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: claveSeleccionada,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: const Color(0xFFF9FAFB),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                            const BorderSide(color: VetColors.border),
+                          ),
+                        ),
+                        hint: const Text(
+                          'Selecciona una mascota atendida',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        items: _opcionesAtendidas
+                            .map((op) => DropdownMenuItem(
+                          value: '${op.idMascota}-${op.idServicio}',
+                          child: Text(
+                              '${op.nombreMascota} — ${op.nombreServicio}',
+                              overflow: TextOverflow.ellipsis),
+                        ))
+                            .toList(),
+                        onChanged: (v) =>
+                            setModalState(() => claveSeleccionada = v),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Solo puedes crear planes para mascotas y servicios de citas que hayas atendido.',
+                        style:
+                        TextStyle(fontSize: 11.5, color: VetColors.muted),
+                      ),
+                      const SizedBox(height: 14),
+                      _campo('Tipo de dieta', tipoDietaCtrl,
+                          hint: 'Balanceada, especial digestiva...'),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _campo('Frecuencia', frecuenciaCtrl,
+                                  hint: '2 veces al día')),
+                          const SizedBox(width: 10),
+                          Expanded(
+                              child: _campo('Calorías', caloriasCtrl,
+                                  hint: '1200',
+                                  keyboardType: TextInputType.number)),
+                        ],
+                      ),
+                      _campo('Horario', horarioCtrl, hint: '8am - 6pm'),
+                      _campo('Alergias', alergiasCtrl, hint: 'Ninguna'),
+                      _campo('Suplementos', suplementosCtrl,
+                          hint: 'Vitaminas'),
+                      _campo('Comidas', comidasCtrl,
+                          maxLines: 2,
+                          hint: 'Desayuno 8:00 400 cal...'),
+                      _campo('Diagnóstico nutricional', diagnosticoCtrl,
+                          maxLines: 2),
+                      _campo('Observaciones', observacionesCtrl,
+                          maxLines: 2),
+                      if (errorLocal != null) ...[
+                        const SizedBox(height: 8),
+                        Text(errorLocal!,
+                            style: const TextStyle(
+                                color: VetColors.red, fontSize: 12.5)),
+                      ],
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: guardando
+                                  ? null
+                                  : () => Navigator.pop(context),
+                              child: const Text('Cancelar'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: guardando
+                                  ? null
+                                  : () async {
+                                if (claveSeleccionada == null ||
+                                    tipoDietaCtrl.text.isEmpty ||
+                                    frecuenciaCtrl.text.isEmpty ||
+                                    caloriasCtrl.text.isEmpty) {
+                                  setModalState(() {
+                                    errorLocal =
+                                    'Selecciona la mascota y completa dieta, frecuencia y calorías.';
+                                  });
+                                  return;
+                                }
+                                final partes =
+                                claveSeleccionada!.split('-');
+                                setModalState(() => guardando = true);
+                                try {
+                                  await _api.crear('/alimentacion', {
+                                    'ID_mascota': partes[0],
+                                    'ID_servicio':
+                                    partes.length > 1 ? partes[1] : null,
+                                    'Tipo_dieta': tipoDietaCtrl.text,
+                                    'Frecuencia': frecuenciaCtrl.text,
+                                    'Calorias':
+                                    num.tryParse(caloriasCtrl.text) ?? 0,
+                                    'Horario': horarioCtrl.text,
+                                    'Alergias': alergiasCtrl.text,
+                                    'Suplementos': suplementosCtrl.text,
+                                    'Comidas': comidasCtrl.text,
+                                    'Diagnostico': diagnosticoCtrl.text,
+                                    'Observaciones':
+                                    observacionesCtrl.text,
+                                    'Revision_nutricional': 'Activo',
+                                  });
+                                  await _cargarTodo();
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                  }
+                                } catch (e) {
+                                  setModalState(() {
+                                    guardando = false;
+                                    errorLocal =
+                                    'No se pudo crear el plan de alimentación.';
+                                  });
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: VetColors.green,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: guardando
+                                  ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white))
+                                  : const Text('Crear plan'),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           );
         });
       },
@@ -550,7 +671,11 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: VetColors.text)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: VetColors.text)),
           const SizedBox(height: 6),
           TextField(
             controller: controller,
@@ -560,7 +685,8 @@ class _VetAlimentacionScreenState extends State<VetAlimentacionScreen> {
               hintText: hint,
               filled: true,
               fillColor: const Color(0xFFF9FAFB),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: VetColors.border),
@@ -579,12 +705,21 @@ class _PlanCard extends StatelessWidget {
   final Color bg;
   final VoidCallback onTap;
 
-  const _PlanCard({required this.plan, required this.color, required this.bg, required this.onTap});
+  const _PlanCard({
+    required this.plan,
+    required this.color,
+    required this.bg,
+    required this.onTap,
+  });
 
   String _iniciales(String? nombre) {
     if (nombre == null || nombre.trim().isEmpty) return '—';
     final partes = nombre.trim().split(' ');
-    return partes.where((p) => p.isNotEmpty).take(2).map((p) => p[0].toUpperCase()).join();
+    return partes
+        .where((p) => p.isNotEmpty)
+        .take(2)
+        .map((p) => p[0].toUpperCase())
+        .join();
   }
 
   @override
@@ -606,7 +741,10 @@ class _PlanCard extends StatelessWidget {
               radius: 20,
               backgroundColor: VetColors.blueBg,
               child: Text(_iniciales(plan.nombreMascota),
-                  style: const TextStyle(color: VetColors.blue, fontWeight: FontWeight.w800, fontSize: 12)),
+                  style: const TextStyle(
+                      color: VetColors.blue,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -617,22 +755,32 @@ class _PlanCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(plan.nombreMascota ?? 'Mascota',
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: VetColors.text)),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: VetColors.text)),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: bg,
+                            borderRadius: BorderRadius.circular(20)),
                         child: Text(plan.estado.toUpperCase(),
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: color)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 3),
                   Text(plan.tipoDieta ?? '—',
-                      style: const TextStyle(fontSize: 12.5, color: VetColors.textSecondary)),
+                      style: const TextStyle(
+                          fontSize: 12.5, color: VetColors.textSecondary)),
                   Text(
                     '${plan.calorias != null ? '${plan.calorias} cal' : '—'} · ${plan.frecuencia ?? '—'}',
-                    style: const TextStyle(fontSize: 11.5, color: VetColors.muted),
+                    style: const TextStyle(
+                        fontSize: 11.5, color: VetColors.muted),
                   ),
                 ],
               ),

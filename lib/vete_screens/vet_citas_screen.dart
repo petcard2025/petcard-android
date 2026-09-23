@@ -8,10 +8,15 @@ class VetCitasScreen extends StatefulWidget {
   final String nombreVeterinario;
   final String? idVeterinario;
 
+  /// Cuando es true, no pinta Scaffold ni AppBar. Se usa cuando
+  /// la pantalla va embebida dentro del VetDashboardScreen (IndexedStack).
+  final bool embebida;
+
   const VetCitasScreen({
     super.key,
     required this.nombreVeterinario,
     this.idVeterinario,
+    this.embebida = false,
   });
 
   @override
@@ -33,7 +38,9 @@ class _VetCitasScreenState extends State<VetCitasScreen> {
   @override
   void initState() {
     super.initState();
-    _verificarAcceso();
+    if (!widget.embebida) {
+      _verificarAcceso();
+    }
     _cargarCitas();
   }
 
@@ -58,16 +65,23 @@ class _VetCitasScreenState extends State<VetCitasScreen> {
       _error = null;
     });
     try {
-      final data = await _api.obtenerCitasAdmin();
+      final data = await _api.obtenerLista('/citas');
       final todas =
-      data.map((e) => Cita.fromJson(e)).toList();
+      data.map((e) => Cita.fromJson(e as Map<String, dynamic>)).toList();
 
-      final propias = todas.where((c) {
-        if (c.idVeterinario != null && widget.idVeterinario != null) {
-          return c.idVeterinario == widget.idVeterinario;
-        }
-        return true;
-      }).toList();
+      // 🐞 DEBUG: ver cuántas citas y qué IDs vienen
+      print('🔎 CITAS BACKEND: ${todas.length}');
+      print('🔎 MI ID VET: ${widget.idVeterinario}');
+      for (final c in todas) {
+        print('   → cita ${c.id} | ID_veterinario=${c.idVeterinario} | mascota=${c.nombreMascota}');
+      }
+
+      // Filtro: si no hay idVeterinario, mostramos TODAS (modo seguro).
+      final propias = widget.idVeterinario == null
+          ? todas
+          : todas
+          .where((c) => c.idVeterinario == widget.idVeterinario)
+          .toList();
 
       if (mounted) setState(() => _citas = propias);
     } catch (e) {
@@ -127,116 +141,138 @@ class _VetCitasScreenState extends State<VetCitasScreen> {
     }
   }
 
+  // ============ CONTENIDO (sin Scaffold) ============
+  Widget _buildContenido() {
+    return RefreshIndicator(
+      onRefresh: _cargarCitas,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Text(
+                  'Citas asignadas a ${widget.nombreVeterinario} · confirma y registra observaciones',
+                  style: const TextStyle(
+                      fontSize: 12.5, color: VetColors.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _busqueda = v),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por mascota, cliente o servicio...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: VetColors.border),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _filtroEstado,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                            const BorderSide(color: VetColors.border),
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'Todos', child: Text('Todos')),
+                          DropdownMenuItem(
+                              value: 'Pendiente', child: Text('Pendiente')),
+                          DropdownMenuItem(
+                              value: 'Confirmada', child: Text('Confirmada')),
+                          DropdownMenuItem(
+                              value: 'Pasada', child: Text('Pasada')),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _filtroEstado = v ?? 'Todos'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text('${_citasFiltradas.length} result.',
+                        style: const TextStyle(
+                            fontSize: 12, color: VetColors.muted)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: VetColors.redBg,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text('⚠️ $_error',
+                    style: const TextStyle(color: VetColors.red)),
+              ),
+            ),
+          Expanded(
+            child: _cargando
+                ? const Center(
+                child: CircularProgressIndicator(color: VetColors.blue))
+                : _citasFiltradas.isEmpty
+                ? const Center(
+                child: Text('No se encontraron citas con ese filtro.',
+                    style: TextStyle(color: VetColors.muted)))
+                : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              itemCount: _citasFiltradas.length,
+              itemBuilder: (context, i) {
+                final cita = _citasFiltradas[i];
+                final estado = _estadoCita(cita);
+                return _CitaCard(
+                  cita: cita,
+                  estado: estado,
+                  color: _colorEstado(estado),
+                  bg: _bgEstado(estado),
+                  onTap: () => _abrirDetalle(cita, estado),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.embebida) {
+      return _buildContenido();
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
         backgroundColor: VetColors.blue,
         elevation: 0,
         title: const Text('Mis Citas',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+            style:
+            TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
       ),
-      body: RefreshIndicator(
-        onRefresh: _cargarCitas,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Text(
-                    'Citas asignadas a ${widget.nombreVeterinario} · confirma y registra observaciones',
-                    style: const TextStyle(fontSize: 12.5, color: VetColors.textSecondary),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _searchController,
-                    onChanged: (v) => setState(() => _busqueda = v),
-                    decoration: InputDecoration(
-                      hintText: 'Buscar por mascota, cliente o servicio...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: VetColors.border),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _filtroEstado,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: VetColors.border),
-                            ),
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 'Todos', child: Text('Todos')),
-                            DropdownMenuItem(value: 'Pendiente', child: Text('Pendiente')),
-                            DropdownMenuItem(value: 'Confirmada', child: Text('Confirmada')),
-                            DropdownMenuItem(value: 'Pasada', child: Text('Pasada')),
-                          ],
-                          onChanged: (v) => setState(() => _filtroEstado = v ?? 'Todos'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text('${_citasFiltradas.length} result.',
-                          style: const TextStyle(fontSize: 12, color: VetColors.muted)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                      color: VetColors.redBg, borderRadius: BorderRadius.circular(10)),
-                  child: Text('⚠️ $_error', style: const TextStyle(color: VetColors.red)),
-                ),
-              ),
-            Expanded(
-              child: _cargando
-                  ? const Center(child: CircularProgressIndicator(color: VetColors.blue))
-                  : _citasFiltradas.isEmpty
-                  ? const Center(
-                  child: Text('No se encontraron citas con ese filtro.',
-                      style: TextStyle(color: VetColors.muted)))
-                  : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                itemCount: _citasFiltradas.length,
-                itemBuilder: (context, i) {
-                  final cita = _citasFiltradas[i];
-                  final estado = _estadoCita(cita);
-                  return _CitaCard(
-                    cita: cita,
-                    estado: estado,
-                    color: _colorEstado(estado),
-                    bg: _bgEstado(estado),
-                    onTap: () => _abrirDetalle(cita, estado),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+      body: _buildContenido(),
     );
   }
 
+  // ============ DETALLE ============
   void _abrirDetalle(Cita cita, String estado) {
     final d = cita.fechaDate;
     final fechaTexto = d != null ? DateFormat('dd/MM/yyyy').format(d) : '-';
@@ -260,9 +296,11 @@ class _VetCitasScreenState extends State<VetCitasScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Detalle de la cita',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 16, color: VetColors.text)),
+              const Text('Detalle de la cita',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: VetColors.text)),
               const SizedBox(height: 14),
               _detailRow('Mascota', cita.nombreMascota ?? '—'),
               _detailRow('Dueño', cita.nombreCliente ?? '—'),
@@ -272,7 +310,9 @@ class _VetCitasScreenState extends State<VetCitasScreen> {
               const SizedBox(height: 8),
               const Text('Observaciones registradas',
                   style: TextStyle(
-                      fontSize: 12.5, color: VetColors.muted, fontWeight: FontWeight.w600)),
+                      fontSize: 12.5,
+                      color: VetColors.muted,
+                      fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),
               Container(
                 width: double.infinity,
@@ -330,7 +370,10 @@ class _VetCitasScreenState extends State<VetCitasScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: const TextStyle(color: VetColors.muted, fontWeight: FontWeight.w600, fontSize: 13)),
+              style: const TextStyle(
+                  color: VetColors.muted,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13)),
           Flexible(
             child: Text(value,
                 textAlign: TextAlign.right,
@@ -368,7 +411,9 @@ class _VetCitasScreenState extends State<VetCitasScreen> {
               children: [
                 Text('Confirmar cita — ${cita.nombreMascota ?? ''}',
                     style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 15, color: VetColors.text)),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: VetColors.text)),
                 const SizedBox(height: 14),
                 Container(
                   width: double.infinity,
@@ -381,21 +426,28 @@ class _VetCitasScreenState extends State<VetCitasScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('${cita.fecha ?? ''} · ${cita.hora ?? ''}',
-                          style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF166534))),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF166534))),
                       Text('Servicio: ${cita.nombreServicio ?? ''}',
-                          style: const TextStyle(color: Color(0xFF166534), fontSize: 13)),
+                          style: const TextStyle(
+                              color: Color(0xFF166534), fontSize: 13)),
                     ],
                   ),
                 ),
                 const SizedBox(height: 14),
                 const Text('Observaciones clínicas',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: VetColors.text)),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: VetColors.text)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: obsController,
                   maxLines: 4,
                   decoration: InputDecoration(
-                    hintText: 'Anota el diagnóstico, tratamiento, indicaciones...',
+                    hintText:
+                    'Anota el diagnóstico, tratamiento, indicaciones...',
                     filled: true,
                     fillColor: const Color(0xFFF9FAFB),
                     border: OutlineInputBorder(
@@ -408,14 +460,17 @@ class _VetCitasScreenState extends State<VetCitasScreen> {
                   const SizedBox(height: 10),
                   Text(mensajeExito!,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: VetColors.green, fontWeight: FontWeight.w700)),
+                      style: const TextStyle(
+                          color: VetColors.green,
+                          fontWeight: FontWeight.w700)),
                 ],
                 const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: guardando ? null : () => Navigator.pop(context),
+                        onPressed:
+                        guardando ? null : () => Navigator.pop(context),
                         child: const Text('Cancelar'),
                       ),
                     ),
@@ -427,21 +482,24 @@ class _VetCitasScreenState extends State<VetCitasScreen> {
                             : () async {
                           setModalState(() => guardando = true);
                           try {
-                            await _api.actualizarCita(cita.id, {
+                            await _api.actualizar('/citas/${cita.id}', {
                               'Observaciones': obsController.text,
                             });
                             setModalState(() {
-                              mensajeExito = '✅ Cita confirmada y observaciones guardadas.';
+                              mensajeExito =
+                              '✅ Cita confirmada y observaciones guardadas.';
                             });
                             await _cargarCitas();
-                            await Future.delayed(const Duration(milliseconds: 900));
+                            await Future.delayed(
+                                const Duration(milliseconds: 900));
                             if (context.mounted) Navigator.pop(context);
                           } catch (e) {
                             setModalState(() => guardando = false);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text('Error al guardar. Inténtalo de nuevo.')),
+                                    content: Text(
+                                        'Error al guardar. Inténtalo de nuevo.')),
                               );
                             }
                           }
@@ -488,7 +546,11 @@ class _CitaCard extends StatelessWidget {
   String _iniciales(String? nombre) {
     if (nombre == null || nombre.trim().isEmpty) return '?';
     final partes = nombre.trim().split(' ');
-    return partes.where((p) => p.isNotEmpty).take(2).map((p) => p[0].toUpperCase()).join();
+    return partes
+        .where((p) => p.isNotEmpty)
+        .take(2)
+        .map((p) => p[0].toUpperCase())
+        .join();
   }
 
   @override
@@ -514,7 +576,9 @@ class _CitaCard extends StatelessWidget {
               backgroundColor: VetColors.blueBg,
               child: Text(_iniciales(cita.nombreMascota),
                   style: const TextStyle(
-                      color: VetColors.blue, fontWeight: FontWeight.w800, fontSize: 12)),
+                      color: VetColors.blue,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -525,21 +589,32 @@ class _CitaCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(cita.nombreMascota ?? 'Mascota',
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: VetColors.text)),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: VetColors.text)),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: bg,
+                            borderRadius: BorderRadius.circular(20)),
                         child: Text(estado,
-                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
+                            style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: color)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Text('${cita.nombreServicio ?? ''} · $fechaTexto ${cita.hora ?? ''}',
-                      style: const TextStyle(fontSize: 12, color: VetColors.textSecondary)),
+                  Text(
+                      '${cita.nombreServicio ?? ''} · $fechaTexto ${cita.hora ?? ''}',
+                      style: const TextStyle(
+                          fontSize: 12, color: VetColors.textSecondary)),
                   Text(cita.nombreCliente ?? '',
-                      style: const TextStyle(fontSize: 11.5, color: VetColors.muted)),
+                      style: const TextStyle(
+                          fontSize: 11.5, color: VetColors.muted)),
                 ],
               ),
             ),

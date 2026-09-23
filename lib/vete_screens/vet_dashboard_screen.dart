@@ -5,7 +5,6 @@ import '../services/auth_service.dart';
 import 'vet_citas_screen.dart';
 import 'vet_alimentacion_screen.dart';
 
-// Colores compartidos del tema (azul + blanco, igual que login.dart)
 class VetColors {
   static const Color blue = Color(0xFF3B82F6);
   static const Color blueDark = Color(0xFF2563EB);
@@ -23,7 +22,6 @@ class VetColors {
   static const Color border = Color(0xFFE5E7EB);
 }
 
-// Modelo simple de una cita (ajusta los nombres de campo según tu API real)
 class Cita {
   final String id;
   final String? idVeterinario;
@@ -88,6 +86,9 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
 
   final _hoy = DateTime.now();
 
+  final ApiService _api = ApiService();
+  final AuthService _auth = AuthService();
+
   @override
   void initState() {
     super.initState();
@@ -98,9 +99,7 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
   Future<void> _verificarAcceso() async {
     if (!mounted) return;
     try {
-      // Usamos el singleton para verificar si hay sesión y quién es el usuario
       final activa = await _auth.haySesionActiva();
-
       if (!activa) {
         if (mounted) Navigator.of(context).pushReplacementNamed('/login');
         return;
@@ -117,14 +116,11 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
         }
       }
 
-      // Intentamos refrescar los datos del servidor de forma silenciosa
-      // Si falla (404), no importa, ya tenemos los datos locales
       try {
         await _api.obtenerMiUsuario();
       } catch (e) {
         print('Nota: El servidor no soporta /auth/me (404), usando datos locales.');
       }
-
     } catch (e) {
       print('Error en verificación: $e');
     }
@@ -142,9 +138,6 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
     return !soloFecha.isBefore(hoySoloFecha);
   }
 
-  final ApiService _api = ApiService();
-  final AuthService _auth = AuthService();
-
   Future<void> _cargarCitas() async {
     if (!mounted) return;
     setState(() {
@@ -152,21 +145,25 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
       _error = null;
     });
     try {
-      final data = await _api.obtenerCitasAdmin();
-      final todas = data
-          .map((e) => Cita.fromJson(e))
-          .toList();
+      final data = await _api.obtenerLista('/citas');
+      final todas =
+      data.map((e) => Cita.fromJson(e as Map<String, dynamic>)).toList();
 
-      final propias = todas.where((c) {
-        if (c.idVeterinario != null && widget.idVeterinario != null) {
-          return c.idVeterinario == widget.idVeterinario;
-        }
-        return true;
-      }).toList();
+      // 🐞 DEBUG
+      print('🔎 DASHBOARD CITAS BACKEND: ${todas.length}');
+      print('🔎 DASHBOARD MI ID VET: ${widget.idVeterinario}');
+
+      final propias = widget.idVeterinario == null
+          ? todas
+          : todas
+          .where((c) => c.idVeterinario == widget.idVeterinario)
+          .toList();
 
       if (mounted) setState(() => _citas = propias);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Error al conectar con el servidor.');
+      if (mounted) {
+        setState(() => _error = 'Error al conectar con el servidor.');
+      }
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -206,86 +203,120 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
     return texto[0].toUpperCase() + texto.substring(1);
   }
 
+  String get _tituloAppBar {
+    switch (_tabIndex) {
+      case 1:
+        return 'Mis Citas';
+      case 2:
+        return 'Alimentación';
+      default:
+        return 'PETCARD';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        backgroundColor: VetColors.blue,
-        elevation: 0,
-        title: Row(
-          children: const [
-            Icon(Icons.pets, color: Colors.white),
-            SizedBox(width: 8),
-            Text('PETCARD',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Cerrar sesión',
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () async {
-              await _auth.signOut();
-              if (mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-              }
-            },
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _cargarCitas,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_tabIndex != 0) {
+          setState(() => _tabIndex = 0);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF9FAFB),
+        appBar: AppBar(
+          backgroundColor: VetColors.blue,
+          elevation: 0,
+          title: Row(
             children: [
-              _buildBanner(),
-              if (_error != null) _buildErrorBanner(),
-              const SizedBox(height: 20),
-              _buildStatsGrid(),
-              const SizedBox(height: 24),
-              _buildSectionHeader('Próximas citas', onVerTodas: () {
-                setState(() => _tabIndex = 1);
-              }),
-              const SizedBox(height: 12),
-              _buildTimeline(),
+              const Icon(Icons.pets, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(_tituloAppBar,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5)),
             ],
           ),
+          actions: [
+            IconButton(
+              tooltip: 'Cerrar sesión',
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: () async {
+                await _auth.signOut();
+                if (mounted) {
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/login', (route) => false);
+                }
+              },
+            ),
+          ],
+        ),
+        body: IndexedStack(
+          index: _tabIndex,
+          children: [
+            _buildInicioTab(),
+            VetCitasScreen(
+              nombreVeterinario: widget.nombreVeterinario,
+              idVeterinario: widget.idVeterinario,
+              embebida: true, // sin Scaffold ni AppBar propia
+            ),
+            VetAlimentacionScreen(
+              nombreVeterinario: widget.nombreVeterinario,
+              idVeterinario: widget.idVeterinario,
+              embebida: true, // sin Scaffold ni AppBar propia
+            ),
+          ],
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _tabIndex,
+          onDestinationSelected: (index) {
+            setState(() => _tabIndex = index);
+            if (index == 0) _cargarCitas();
+          },
+          destinations: const [
+            NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Inicio'),
+            NavigationDestination(
+                icon: Icon(Icons.event_note_outlined),
+                selectedIcon: Icon(Icons.event_note),
+                label: 'Mis Citas'),
+            NavigationDestination(
+                icon: Icon(Icons.restaurant_outlined),
+                selectedIcon: Icon(Icons.restaurant),
+                label: 'Alimentación'),
+          ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tabIndex,
-        onDestinationSelected: (index) {
-          setState(() => _tabIndex = index);
-          if (index == 1) {
-            Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => VetCitasScreen(
-                nombreVeterinario: widget.nombreVeterinario,
-                idVeterinario: widget.idVeterinario,
-              ),
-            ));
-            setState(() => _tabIndex = 0);
-          } else if (index == 2) {
-            Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => VetAlimentacionScreen(
-                nombreVeterinario: widget.nombreVeterinario,
-                idVeterinario: widget.idVeterinario,
-              ),
-            ));
-            setState(() => _tabIndex = 0);
-          }
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Inicio'),
-          NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note), label: 'Mis Citas'),
-          NavigationDestination(icon: Icon(Icons.restaurant_outlined), selectedIcon: Icon(Icons.restaurant), label: 'Alimentación'),
-        ],
+    );
+  }
+
+  // -------- TAB INICIO --------
+  Widget _buildInicioTab() {
+    return RefreshIndicator(
+      onRefresh: _cargarCitas,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildBanner(),
+            if (_error != null) _buildErrorBanner(),
+            const SizedBox(height: 20),
+            _buildStatsGrid(),
+            const SizedBox(height: 24),
+            _buildSectionHeader('Próximas citas', onVerTodas: () {
+              setState(() => _tabIndex = 1);
+            }),
+            const SizedBox(height: 12),
+            _buildTimeline(),
+          ],
+        ),
       ),
     );
   }
@@ -302,7 +333,7 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: VetColors.blue.withOpacity(0.25),
+            color: VetColors.blue.withValues(alpha: 0.25),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -317,9 +348,10 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
+                  color: Colors.white.withValues(alpha: 0.18),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.5),
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.35), width: 1.5),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -357,7 +389,8 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
                     const SizedBox(height: 2),
                     Text(
                       _fechaLarga,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 13),
                     ),
                   ],
                 ),
@@ -368,14 +401,7 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => VetCitasScreen(
-                    nombreVeterinario: widget.nombreVeterinario,
-                    idVeterinario: widget.idVeterinario,
-                  ),
-                ));
-              },
+              onPressed: () => setState(() => _tabIndex = 1),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: VetColors.blueDark,
@@ -409,10 +435,14 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
 
   Widget _buildStatsGrid() {
     final stats = [
-      (_citasHoy.length, 'Citas hoy', Icons.calendar_today, VetColors.blue, VetColors.blueBg),
-      (_citasPendientes.length, 'Pendientes', Icons.schedule, VetColors.yellow, VetColors.yellowBg),
-      (_citasConfirmadas.length, 'Confirmadas', Icons.check_circle_outline, VetColors.green, VetColors.greenBg),
-      (_citas.length, 'Total asignadas', Icons.list_alt, VetColors.blueDark, VetColors.blueBg),
+      (_citasHoy.length, 'Citas hoy', Icons.calendar_today, VetColors.blue,
+      VetColors.blueBg),
+      (_citasPendientes.length, 'Pendientes', Icons.schedule, VetColors.yellow,
+      VetColors.yellowBg),
+      (_citasConfirmadas.length, 'Confirmadas', Icons.check_circle_outline,
+      VetColors.green, VetColors.greenBg),
+      (_citas.length, 'Total asignadas', Icons.list_alt, VetColors.blueDark,
+      VetColors.blueBg),
     ];
 
     return GridView.count(
@@ -421,18 +451,17 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1.7,
+      childAspectRatio: 2.0,
       children: stats.map((s) {
         final (value, label, icon, color, bg) = s;
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: VetColors.border),
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 width: 38,
@@ -444,23 +473,24 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
                 alignment: Alignment.center,
                 child: Icon(icon, color: color, size: 18),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('$value',
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
-                          fontSize: 20,
+                          fontSize: 18, // antes 20
                           color: VetColors.text,
                         )),
                     Text(label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 10.5,
                           color: VetColors.muted,
                         )),
                   ],
@@ -479,12 +509,15 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
       children: [
         Text(title,
             style: const TextStyle(
-                fontWeight: FontWeight.w800, fontSize: 16, color: VetColors.text)),
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                color: VetColors.text)),
         if (onVerTodas != null)
           TextButton(
             onPressed: onVerTodas,
             child: const Text('Ver todas',
-                style: TextStyle(color: VetColors.blue, fontWeight: FontWeight.w600)),
+                style: TextStyle(
+                    color: VetColors.blue, fontWeight: FontWeight.w600)),
           ),
       ],
     );
@@ -503,7 +536,7 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: VetColors.border, style: BorderStyle.solid),
+          border: Border.all(color: VetColors.border),
         ),
         alignment: Alignment.center,
         child: const Text('No tienes citas próximas asignadas.',
@@ -516,7 +549,8 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
         final esHoy = _esHoy(cita.fechaDate);
         final d = cita.fechaDate;
         final dia = d != null ? DateFormat('dd').format(d) : '--';
-        final mes = d != null ? DateFormat('MMM', 'es').format(d).toUpperCase() : '---';
+        final mes =
+        d != null ? DateFormat('MMM', 'es').format(d).toUpperCase() : '---';
 
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
@@ -542,7 +576,8 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
                             fontSize: 17,
                             color: VetColors.blue)),
                     Text(mes,
-                        style: const TextStyle(fontSize: 10, color: VetColors.muted)),
+                        style: const TextStyle(
+                            fontSize: 10, color: VetColors.muted)),
                   ],
                 ),
               ),
@@ -556,7 +591,8 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
                         Expanded(
                           child: Text(cita.nombreMascota ?? 'Mascota',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w700, color: VetColors.text)),
+                                  fontWeight: FontWeight.w700,
+                                  color: VetColors.text)),
                         ),
                         _badge(cita.confirmada ? 'Confirmada' : 'Pendiente',
                             cita.confirmada),
@@ -565,9 +601,11 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
                     const SizedBox(height: 3),
                     Text(
                       '${cita.nombreServicio ?? ''} · ${cita.hora ?? ''} · ${cita.nombreCliente ?? ''}',
-                      style: const TextStyle(fontSize: 12.5, color: VetColors.textSecondary),
+                      style: const TextStyle(
+                          fontSize: 12.5, color: VetColors.textSecondary),
                     ),
-                    if (cita.confirmada && (cita.observaciones ?? '').isNotEmpty)
+                    if (cita.confirmada &&
+                        (cita.observaciones ?? '').isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text('"${cita.observaciones}"',
@@ -591,9 +629,11 @@ class _VetDashboardScreenState extends State<VetDashboardScreen> {
     final bg = confirmada ? VetColors.greenBg : VetColors.yellowBg;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      decoration:
+      BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
       child: Text(texto,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }
