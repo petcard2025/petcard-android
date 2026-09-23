@@ -107,12 +107,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
     // Validaciones
     if (_nombreController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty) {
-      _mostrarAlerta('Error', '⚠️ Nombre y email son obligatorios');
+      _mostrarAlerta('Error', 'Nombre y email son obligatorios');
       return;
     }
 
     if (!_isValidEmail(_emailController.text.trim())) {
-      _mostrarAlerta('Error', '⚠️ Email no válido');
+      _mostrarAlerta('Error', 'Email no válido');
       return;
     }
 
@@ -163,10 +163,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
         _guardando = false;
       });
 
-      _mostrarAlerta('Éxito', '✅ Perfil actualizado correctamente');
+      _mostrarAlerta('Éxito', 'Perfil actualizado correctamente');
     } catch (e) {
       setState(() => _guardando = false);
-      _mostrarAlerta('Error', '❌ Error al guardar los cambios');
+      _mostrarAlerta('Error', 'Error al guardar los cambios');
       print('Error guardando usuario: $e');
     }
   }
